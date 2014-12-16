@@ -1,0 +1,17 @@
+<phpunit
+  bootstrap="test/bootstrap.php"
+  colors="true">
+  <testsuites>
+    <testsuite name="baidubce/http">
+      <file>test/baidubce/http/HttpClient.php</file>
+      <file>test/baidubce/services/bos/BosHttpClient.php</file>
+      <file>test/baidubce/services/bos/BosClient.php</file>
+    </testsuite>
+    <testsuite name="baidubce/auth">
+      <file>test/baidubce/auth/Auth.php</file>
+    </testsuite>
+    <testsuite name="baidubce/util">
+      <file>test/baidubce/util/Coder.php</file>
+    </testsuite>
+  </testsuites>
+</phpunit>

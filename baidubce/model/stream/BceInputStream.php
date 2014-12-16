@@ -1,0 +1,42 @@
+<?php
+/*
+ * Copyright (c) 2014 Baidu.com, Inc. All Rights Reserved
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ */
+
+namespace baidubce\model\stream;
+
+require_once __DIR__ . "/BceBaseStream.php";
+require_once dirname(dirname(__DIR__)) . "/exception/BceRuntimeException.php";
+
+use baidubce\exception\BceRuntimeException;
+
+class BceInputStream extends BceBaseStream {
+    public function read($size) {
+        throw new BceRuntimeException("BceInputStream", "read");
+    }
+
+    public function readAll() {
+        throw new BceRuntimeException("BceInputStream", "readAll");
+    }
+
+    public function getSize() {
+        throw new BceRuntimeException("BceInputStream", "getSize");
+    }
+
+    public function seek($pos) {
+        throw new BceRuntimeException("BceInputStream", "seek");
+    }
+
+    public function getPosition() {
+        throw new BceRuntimeException("BceInputStream", "getPosition");
+    }
+} 
