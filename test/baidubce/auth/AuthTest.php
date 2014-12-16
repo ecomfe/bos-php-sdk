@@ -13,10 +13,8 @@
 */
 
 require_once __BOS_CLIENT_ROOT . "/baidubce/auth/Auth.php";
-require_once __BOS_CLIENT_ROOT . "/baidubce/util/Time.php";
 
 use baidubce\auth\Auth;
-use baidubce\auth\Time;
 
 class AuthTest extends PHPUnit_Framework_TestCase {
     public function testQueryStringCanonicalization() {

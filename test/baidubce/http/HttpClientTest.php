@@ -25,10 +25,7 @@ class HttpClientTest extends PHPUnit_Framework_TestCase {
             $client->sendRequest('GET', 'http://no-such-url/');
         }
         catch(\baidubce\exception\BceRuntimeException $ex) {
-            $this->assertEquals(
-                'errno = 6, error = Could not resolve host: no-such-url',
-                $ex->getMessage()
-            );
+            $this->assertEquals(0, strpos('errno = 6', $ex->getMessage()));
         }
     }
 
@@ -42,11 +39,7 @@ class HttpClientTest extends PHPUnit_Framework_TestCase {
             $client->sendRequest('GET', 'https://bs.baidu.com');
         }
         catch(\baidubce\exception\BceRuntimeException $ex) {
-            $message = $ex->getMessage();
-            $matches = array();
-            $pattern = '/^errno = \d+, error = (Connection|Resolving) timed out after (\d+) milliseconds$/';
-            $this->assertEquals(1, preg_match($pattern, trim($message), $matches));
-            $this->assertTrue(intval($matches[2]) >= $config['TimeOut']);
+            $this->assertEquals(0, strpos('errno = 28', $ex->getMessage()));
         }
     }
 
