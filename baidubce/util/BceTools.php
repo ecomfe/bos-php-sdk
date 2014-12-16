@@ -11,9 +11,7 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-namespace baidubce\util;
-
-class BceTools {
+class baidubce_util_BceTools {
     /**
      * Generated uuid act as bos-request-id
      *

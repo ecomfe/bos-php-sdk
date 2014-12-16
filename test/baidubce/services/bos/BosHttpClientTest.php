@@ -15,14 +15,11 @@
 require_once __BOS_CLIENT_ROOT . "/baidubce/services/bos/BosHttpClient.php";
 require_once __BOS_CLIENT_ROOT . "/baidubce/model/stream/BceStringInputStream.php";
 
-use baidubce\services\bos\BosHttpClient;
-use baidubce\model\stream\BceStringInputStream;
-
 class BosHttpClientTest extends PHPUnit_Framework_TestCase {
     private $client;
 
     public function __construct() {
-        $this->client = new BosHttpClient(json_decode(__BOS_TEST_CONFIG, true));
+        $this->client = new baidubce_services_bos_BosHttpClient(json_decode(__BOS_TEST_CONFIG, true));
     }
 
     public function testSendRequest() {
@@ -58,7 +55,7 @@ class BosHttpClientTest extends PHPUnit_Framework_TestCase {
         $headers = array();
         $body = '';
         $params = array('acl' => null);
-        $input_stream = new BceStringInputStream(json_encode(array('accessControlList' => $grant_list)));
+        $input_stream = new baidubce_model_stream_BceStringInputStream(json_encode(array('accessControlList' => $grant_list)));
 
         $this->client->sendRequest('PUT', $bucket);
         $response = $this->client->sendRequest('PUT',

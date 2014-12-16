@@ -1,5 +1,5 @@
 all:
-	php phpunit.phar -c phpunit.xml --exclude-group ignore
+	phpunit --configuration phpunit.xml --exclude-group ignore
 
 lint:
 	python eagle.py -f baidubce/auth/Auth.php
@@ -17,3 +17,5 @@ lint:
 	python eagle.py -f baidubce/exception/BceRuntimeException.php
 	python eagle.py -f baidubce/exception/BceServiceException.php
 	python eagle.py -f baidubce/exception/BceStreamException.php
+
+test: all

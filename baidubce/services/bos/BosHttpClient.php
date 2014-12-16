@@ -11,26 +11,18 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-namespace baidubce\services\bos;
+require_once dirname(dirname(dirname(__FILE__))) . "/auth/Auth.php";
+require_once dirname(dirname(dirname(__FILE__))) . "/http/HttpClient.php";
+require_once dirname(dirname(dirname(__FILE__))) . "/util/Coder.php";
+require_once dirname(dirname(dirname(__FILE__))) . "/util/Time.php";
+require_once dirname(dirname(dirname(__FILE__))) . "/util/BceTools.php";
+require_once dirname(dirname(dirname(__FILE__))) . "/exception/BceServiceException.php";
 
-require_once dirname(dirname(__DIR__)) . "/auth/Auth.php";
-require_once dirname(dirname(__DIR__)) . "/http/HttpClient.php";
-require_once dirname(dirname(__DIR__)) . "/util/Coder.php";
-require_once dirname(dirname(__DIR__)) . "/util/Time.php";
-require_once dirname(dirname(__DIR__)) . "/util/BceTools.php";
-require_once dirname(dirname(__DIR__)) . "/exception/BceServiceException.php";
-
-use baidubce\auth\Auth;
-use baidubce\http\HttpClient;
-use baidubce\util\Coder;
-use baidubce\util\Time;
-use baidubce\util\BceTools;
-use baidubce\exception\BceServiceException;
 
 /**
  * Standard http request of Bos.
  */
-class BosHttpClient extends HttpClient {
+class baidubce_services_bos_BosHttpClient extends baidubce_http_HttpClient {
     private $config;
     private $auth;
 
@@ -39,7 +31,10 @@ class BosHttpClient extends HttpClient {
      */
     function __construct(array $config){
         $this->config = $config;
-        $this->auth = new Auth($config['AccessKeyId'], $config['AccessKeySecret']);
+        $this->auth = new baidubce_auth_Auth(
+            $config['AccessKeyId'],
+            $config['AccessKeySecret']
+        );
     }
 
     /**
@@ -62,7 +57,7 @@ class BosHttpClient extends HttpClient {
             if (strpos($k, 'x-bce-meta-') === 0) {
                 $meta_size += strlen($v);
             } else if (strcmp($k, 'x-bce-copy-source') === 0) {
-                $headers[$k] = Coder::urlEncodeExceptSlash($v);
+                $headers[$k] = baidubce_util_Coder::urlEncodeExceptSlash($v);
             }
         }
 
@@ -72,17 +67,22 @@ class BosHttpClient extends HttpClient {
 
         $resource = empty($object) ? sprintf('/%s', $bucket) : sprintf('/%s/%s', $bucket, $object);
 
-        $content_length = is_resource($input_stream)
-                          ? fstat($input_stream)['size']
-                          : (
-                              (!is_null($input_stream) && method_exists($input_stream, 'getSize'))
-                              ? $input_stream->getSize()
-                              : strlen($body)
-                            );
+        $content_length = 0;
+        if (is_resource($input_stream)) {
+            $stat = fstat($input_stream);
+            $content_length = $stat['size'];
+        }
+        else if ((!is_null($input_stream) && method_exists($input_stream, 'getSize'))) {
+            $content_length = $input_stream->getSize();
+        }
+        else {
+            $content_length = strlen($body);
+        }
+
         $user_agent = isset($this->config['User-Agent']) ? $this->config['User-Agent'] : 'BOS PHP SDK v1';
         $default_headers = array(
-            'x-bce-date' => Time::bceTimeNow(),
-            'x-bce-request-id' => BceTools::genUUid(),
+            'x-bce-date' => baidubce_util_Time::bceTimeNow(),
+            'x-bce-request-id' => baidubce_util_BceTools::genUUid(),
             'Expect' => '',
             'Transfer-Encoding' => '',
             'Content-Type' => 'application/json; charset=utf-8',
@@ -104,7 +104,7 @@ class BosHttpClient extends HttpClient {
         $body = $response['body'];
         if (is_array($body) && isset($body['code']) && isset($body['message'])) {
             // Error hanppend.
-            throw new BceServiceException($body['requestId'], $body['code'], $body['message'],
+            throw new baidubce_exception_BceServiceException($body['requestId'], $body['code'], $body['message'],
                 $response['status']);
         }
 
@@ -133,18 +133,28 @@ class BosHttpClient extends HttpClient {
     }
 
     /**
+     * @param string $k query string key
+     * @param string $v query string value
+     *
+     * @return string
+     */
+    private function encodeValue($k, $v) {
+        return $k . "=" . baidubce_util_Coder::urlEncode($v);
+    }
+
+    /**
      * @param string $resource The bucket and object path.
      * @param array @param The query strings
      *
      * @return string The complete request url path with query string.
      */
     private function getRequestUrl($resource, $params) {
-        $uri = "/v1" . Coder::urlEncodeExceptSlash($resource);
+        $uri = "/v1" . baidubce_util_Coder::urlEncodeExceptSlash($resource);
 
         // TODO(leeight) 
         // k = k.replace('_', '-')
-        $query_string = implode("&", array_map(function($k, $v) {return $k . "=" . Coder::urlEncode($v);},
-            array_keys($params), $params));
+        $query_string = implode("&", array_map(
+            array($this, 'encodeValue'), array_keys($params), $params));
 
         if (!is_null($query_string) && $query_string != "") {
             return $uri . "?" . $query_string;

@@ -13,14 +13,10 @@
 */
 
 require_once __BOS_CLIENT_ROOT . "/baidubce/auth/Auth.php";
-require_once __BOS_CLIENT_ROOT . "/baidubce/util/Time.php";
-
-use baidubce\auth\Auth;
-use baidubce\auth\Time;
 
 class AuthTest extends PHPUnit_Framework_TestCase {
     public function testQueryStringCanonicalization() {
-        $auth = new Auth('ak','sk');
+        $auth = new baidubce_auth_Auth('ak','sk');
 
         $params = array(
             'A' => 'A',
@@ -31,7 +27,7 @@ class AuthTest extends PHPUnit_Framework_TestCase {
     }
 
     public function testHeadersCanonicalization() {
-        $auth = new Auth('ak', 'sk');
+        $auth = new baidubce_auth_Auth('ak', 'sk');
 
         $headers = array(
             'Host' =>'localhost',
@@ -49,7 +45,7 @@ class AuthTest extends PHPUnit_Framework_TestCase {
     }
 
     public function testGenerateAuthorization() {
-        $auth = new Auth('my_ak', 'my_sk');
+        $auth = new baidubce_auth_Auth('my_ak', 'my_sk');
 
         $method = 'PUT';
         $uri = '/bucket/object1';

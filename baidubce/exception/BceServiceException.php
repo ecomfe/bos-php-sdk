@@ -12,9 +12,7 @@
  * specific language governing permissions and limitations under the License.
  */
 
-namespace baidubce\exception;
-
-class BceServiceException extends BceBaseException {
+class baidubce_exception_BceServiceException extends baidubce_exception_BceBaseException {
     private $status_code;
     private $request_id;
     private $service_error_code;

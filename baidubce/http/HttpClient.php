@@ -12,17 +12,19 @@
  * specific language governing permissions and limitations under the License.
  */
 
-namespace baidubce\http;
-
-require_once dirname(__DIR__) . "/exception/BceRuntimeException.php";
-
-use baidubce\exception\BceRuntimeException;
+require_once dirname(dirname(__FILE__)) . "/exception/BceRuntimeException.php";
 
 /**
  * Standard http request of BCE.
  */
-class HttpClient {
+class baidubce_http_HttpClient {
     private $config;
+
+    private $http_response_headers;
+
+    private $input_stream;
+
+    private $output_stream;
 
     /**
      * HttpClient's constructor
@@ -46,7 +48,7 @@ class HttpClient {
      */
     public function sendRequest($method, $url, $request_body = '', $headers = array(),
         $input_stream = null, $output_stream = null) {
-        $curl_handle = \curl_init();
+        $curl_handle = curl_init();
         curl_setopt($curl_handle, CURLOPT_URL, $url);
         curl_setopt($curl_handle, CURLOPT_NOPROGRESS, true);
         curl_setopt($curl_handle, CURLINFO_HEADER_OUT, true);
@@ -78,47 +80,23 @@ class HttpClient {
         }
 
         if (!is_null($input_stream)) {
+            $this->input_stream = $input_stream;
             curl_setopt($curl_handle, CURLOPT_POST, true);
-            $read_callback = function($_1, $_2, $size) use ($input_stream) {
-                if (is_resource($input_stream)) { 
-                    return fread($input_stream, $size);
-                }
-                else if (method_exists($input_stream, 'read')) {
-                    return $input_stream->read($size);
-                }
-
-                // EOF
-                return '';
-            };
-            curl_setopt($curl_handle, CURLOPT_READFUNCTION, $read_callback);
+            curl_setopt($curl_handle, CURLOPT_READFUNCTION, array($this, 'readCallback'));
         }
 
         // Handle Http Response
         if (!is_null($output_stream)) {
-            $write_callback = function($_1, $str) use ($output_stream) {
-                if (is_resource($output_stream)) {
-                    return fwrite($output_stream, $str);
-                }
-                else if (method_exists($output_stream, 'write')) {
-                    return $output_stream->write($str);
-                }
-
-                // EOF
-                return false;
-            };
-            curl_setopt($curl_handle, CURLOPT_WRITEFUNCTION, $write_callback);
+            $this->output_stream = $output_stream;
+            curl_setopt($curl_handle, CURLOPT_WRITEFUNCTION, array($this, 'writeCallback'));
         }
         else {
             curl_setopt($curl_handle, CURLOPT_RETURNTRANSFER, true);
         }
 
         // Handle Http Response Headers
-        $http_response_headers = array();
-        $read_response_headers_callback = function($_1, $str) use (&$http_response_headers) {
-            array_push($http_response_headers, $str);
-            return strlen($str);
-        };
-        curl_setopt($curl_handle, CURLOPT_HEADERFUNCTION, $read_response_headers_callback);
+        $this->http_response_headers = array();
+        curl_setopt($curl_handle, CURLOPT_HEADERFUNCTION, array($this, 'responseHeaderCallback'));
         curl_setopt($curl_handle, CURLOPT_HEADER, false);
 
         // Send request
@@ -131,10 +109,10 @@ class HttpClient {
         curl_close($curl_handle);
 
         if ($error != "") {
-            throw new BceRuntimeException(sprintf("errno = %d, error = %s", $errno, $error));
+            throw new baidubce_exception_BceRuntimeException(sprintf("errno = %d, error = %s", $errno, $error));
         }
 
-        $http_headers = $this->parseHttpHeaders($http_response_headers);
+        $http_headers = $this->parseHttpHeaders($this->http_response_headers);
         if ($response === '' || $response === true) {
             // $response === true means the response body was handled by $output_stream.
             // $response === '' means there is no response body.
@@ -142,7 +120,7 @@ class HttpClient {
         } else if (!is_null($content_type) && strpos($content_type, 'application/json') === 0) {
             $body = json_decode($response, true);
             if (is_null($body)) {
-                throw new BceRuntimeException(sprintf("MalformedJSON (%s)", $response));
+                throw new baidubce_exception_BceRuntimeException(sprintf("MalformedJSON (%s)", $response));
             }
         } else {
             $body = $response;
@@ -153,6 +131,54 @@ class HttpClient {
             'http_headers' => $http_headers,
             'body' => $body,
         );
+    }
+
+    /**
+     * @param resource $_1 Then opened curl handle.
+     * @param string $str The header line
+     *
+     * @return number
+     */
+    private function responseHeaderCallback($_1, $str) {
+        array_push($this->http_response_headers, $str);
+        return strlen($str);
+    }
+
+    /**
+     * @param resource $_1 The opened curl handle.
+     * @param string $str The response body data chunk.
+     *
+     * @return number
+     */
+    private function writeCallback($_1, $str) {
+        if (is_resource($this->output_stream)) {
+            return fwrite($this->output_stream, $str);
+        }
+        else if (method_exists($this->output_stream, 'write')) {
+            return $this->output_stream->write($str);
+        }
+
+        // EOF
+        return false;
+    }
+
+    /**
+     * @param resource $_1 The opend curl handle
+     * @param resource $_2 The opend file passed by CURLOPT_INFILE option
+     * @param number size The required data length.
+     *
+     * @return number The actual readed data length, empty string means reach the end.
+     */
+    private function readCallback($_1, $_2, $size) {
+        if (is_resource($this->input_stream)) { 
+            return fread($this->input_stream, $size);
+        }
+        else if (method_exists($this->input_stream, 'read')) {
+            return $this->input_stream->read($size);
+        }
+
+        // EOF
+        return '';
     }
 
     /**

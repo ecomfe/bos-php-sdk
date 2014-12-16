@@ -11,14 +11,10 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-namespace baidubce\model\stream;
+require_once dirname(__FILE__) . "/BceInputStream.php";
+require_once dirname(__FILE__) . "/../../exception/BceStreamException.php";
 
-require_once __DIR__ . "/BceInputStream.php";
-require_once dirname(dirname(__DIR__)) . "/exception/BceStreamException.php";
-
-use baidubce\exception\BceStreamException;
-
-class BceStringInputStream extends BceInputStream {
+class baidubce_model_stream_BceStringInputStream extends baidubce_model_stream_BceInputStream {
     function __construct($data) {
         $this->data = $data;
         $this->size = strlen($data);
@@ -42,7 +38,7 @@ class BceStringInputStream extends BceInputStream {
 
     public function seek($pos) {
         if ($pos > $this->size || $pos < 0) {
-            throw new BceStreamException("seek across end of string stream");
+            throw new baidubce_exception_BceStreamException("seek across end of string stream");
         }
 
         return $this->pos = $pos;

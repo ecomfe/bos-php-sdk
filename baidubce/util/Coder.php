@@ -11,9 +11,7 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-namespace baidubce\util;
-
-class Coder {
+class baidubce_util_Coder {
     /**
      * @param string $str
      *
@@ -31,7 +29,7 @@ class Coder {
      * @return string
      */
     static function urlEncodeExceptSlash($str) {
-        return implode("/", array_map(function($v) { return rawurlencode($v); }, explode("/", $str)));
+        return implode("/", array_map(rawurlencode, explode("/", $str)));
     }
 
     /**
@@ -65,7 +63,7 @@ class Coder {
      */
     static function guessMimeType($file_name) {
         $ext = pathinfo($file_name, PATHINFO_EXTENSION);
-        $map = require(__DIR__ . "/mime.types.php");
+        $map = require(dirname(__FILE__) . "/mime.types.php");
 
         return isset($map[$ext]) ? $map[$ext] : 'application/octet-stream';
     }

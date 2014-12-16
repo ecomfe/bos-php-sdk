@@ -12,9 +12,7 @@
  * specific language governing permissions and limitations under the License.
  */
 
-namespace baidubce\model\stream;
-
-class BceBaseStream {
+class baidubce_model_stream_BceBaseStream {
     public function getErrorDescription($code) {
         return "";
     }

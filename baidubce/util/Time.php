@@ -11,9 +11,7 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-namespace baidubce\util;
-
-class Time {
+class baidubce_util_Time {
     /**
      * @param number $bos_time The default value is 0, most of time this paramter
      *   only used in test cases.

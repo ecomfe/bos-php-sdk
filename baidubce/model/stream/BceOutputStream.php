@@ -14,8 +14,8 @@
 
 namespace baidubce\model\stream;
 
-require_once __DIR__ . "/BceBaseStream.php";
-require_once dirname(dirname(__DIR__)) . "/exception/BceRuntimeException.php";
+require_once dirname(__FILE__) . "/BceBaseStream.php";
+require_once dirname(dirname(dirname(__FILE__))) . "/exception/BceRuntimeException.php";
 
 use baidubce\exception\BceRuntimeException;
 

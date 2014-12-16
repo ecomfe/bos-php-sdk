@@ -12,11 +12,9 @@
  * specific language governing permissions and limitations under the License.
  */
 
-namespace baidubce\exception;
+require_once dirname(__FILE__) . "/BceBaseException.php";
 
-require_once __DIR__ . "/BceBaseException.php";
-
-class BceRuntimeException extends BceBaseException {
+class baidubce_exception_BceRuntimeException extends baidubce_exception_BceBaseException {
 
     /**
      * @param string $message The exception message.

@@ -12,7 +12,7 @@
 * specific language governing permissions and limitations under the License.
 */
 
-define('__BOS_CLIENT_ROOT', dirname(__DIR__));
+define('__BOS_CLIENT_ROOT', dirname(dirname(__FILE__)));
 
 // Only scalar and null values are allowed
 define('__BOS_TEST_CONFIG', json_encode(array(

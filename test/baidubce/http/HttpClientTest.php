@@ -15,18 +15,16 @@
 require_once __BOS_CLIENT_ROOT . "/baidubce/http/HttpClient.php";
 require_once __BOS_CLIENT_ROOT . "/baidubce/exception/BceRuntimeException.php";
 
-use baidubce\http\HttpClient;
-
 class HttpClientTest extends PHPUnit_Framework_TestCase {
     public function testInvalidUrl() {
         $config = array();
-        $client = new HttpClient($config);
+        $client = new baidubce_http_HttpClient($config);
         try {
             $client->sendRequest('GET', 'http://no-such-url/');
         }
-        catch(\baidubce\exception\BceRuntimeException $ex) {
+        catch(baidubce_exception_BceRuntimeException $ex) {
             $this->assertEquals(
-                'errno = 6, error = Could not resolve host: no-such-url',
+                'errno = 6, error = Couldn\'t resolve host \'no-such-url\'',
                 $ex->getMessage()
             );
         }
@@ -36,23 +34,20 @@ class HttpClientTest extends PHPUnit_Framework_TestCase {
         $config = array(
             'TimeOut' => 10,    // 10ms
         );
-        $client = new HttpClient($config);
+        $client = new baidubce_http_HttpClient($config);
 
         try {
             $client->sendRequest('GET', 'https://bs.baidu.com');
         }
-        catch(\baidubce\exception\BceRuntimeException $ex) {
+        catch(baidubce_exception_BceRuntimeException $ex) {
             $message = $ex->getMessage();
-            $matches = array();
-            $pattern = '/^errno = \d+, error = (Connection|Resolving) timed out after (\d+) milliseconds$/';
-            $this->assertEquals(1, preg_match($pattern, trim($message), $matches));
-            $this->assertTrue(intval($matches[2]) >= $config['TimeOut']);
+            $this->assertEquals(0, strpos($message, 'errno = 28'));
         }
     }
 
     public function testHttpGet() {
         $config = array();
-        $client = new HttpClient($config);
+        $client = new baidubce_http_HttpClient($config);
         $response = $client->sendRequest('GET', 'https://bs.baidu.com/', null, array());
 
         $this->assertTrue(array_key_exists('status', $response));

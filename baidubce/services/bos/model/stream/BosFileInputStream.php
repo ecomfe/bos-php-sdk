@@ -14,7 +14,7 @@
 
 namespace baidubce\services\bos\model\stream;
 
-require_once dirname(dirname(dirname(dirname(__DIR__)))) . "/model/stream/BceInputStream.php";
+require_once dirname(dirname(dirname(dirname(dirname(__FILE__))))) . "/model/stream/BceInputStream.php";
 
 use baidubce\model\stream\BceInputStream;
 

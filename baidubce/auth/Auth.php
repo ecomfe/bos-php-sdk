@@ -12,22 +12,13 @@
  * specific language governing permissions and limitations under the License.
  */
 
-namespace baidubce\auth;
-
-require_once dirname(__DIR__) . "/util/Time.php";
-require_once dirname(__DIR__) . "/util/Coder.php";
-require_once dirname(__DIR__) . "/exception/BceIllegalArgumentException.php";
-
-use baidubce\exception\BceIllegalArgumentException;
-use baidubce\util\Coder;
-use baidubce\util\Time;
+require_once dirname(dirname(__FILE__)) . "/util/Time.php";
+require_once dirname(dirname(__FILE__)) . "/util/Coder.php";
 
 
-class Auth {
+class baidubce_auth_Auth {
     private $access_key;
     private $access_key_secret;
-
-    const VERSION = "1";
 
     /**
      * The Auth constructor
@@ -59,14 +50,14 @@ class Auth {
         $timestamp = 0, $expiration_in_seconds = 1800, $headers_to_sign = null) {
 
         $raw_session_key = sprintf("bce-auth-v%s/%s/%s/%d",
-            Auth::VERSION,
+            "1",
             $this->access_key,
-            Time::bceTimeNow($timestamp),
+            baidubce_util_Time::bceTimeNow($timestamp),
             $expiration_in_seconds
         );
         $session_key = hash_hmac("sha256", $raw_session_key, $this->access_key_secret, false);
 
-        $canonical_uri = "/v1" . Coder::urlEncodeExceptSlash($resource);
+        $canonical_uri = "/v1" . baidubce_util_Coder::urlEncodeExceptSlash($resource);
         $canonical_query_string = $this->queryStringCanonicalization($params);
         list($canonical_headers, $signed_headers) = $this->headersCanonicalization($headers, $headers_to_sign);
 
@@ -132,7 +123,8 @@ class Auth {
 
         $signed_headers = array();
         foreach ($canonical_headers as $item) {
-            array_push($signed_headers, explode(':', $item, 2)[0]);
+            $xyz = explode(':', $item, 2);
+            array_push($signed_headers, $xyz[0]);
         }
         return array(
             implode("\n", $canonical_headers),

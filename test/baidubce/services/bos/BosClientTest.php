@@ -17,10 +17,6 @@ require_once __BOS_CLIENT_ROOT . "/baidubce/util/Time.php";
 require_once __BOS_CLIENT_ROOT . "/baidubce/util/Coder.php";
 require_once __BOS_CLIENT_ROOT . "/baidubce/exception/BceServiceException.php";
 
-use baidubce\services\bos\BosClient;
-use baidubce\util\Time;
-use baidubce\util\Coder;
-
 class BosClientTest extends PHPUnit_Framework_TestCase {
     private $client;
 
@@ -30,7 +26,7 @@ class BosClientTest extends PHPUnit_Framework_TestCase {
 
     public function __construct() {
         parent::__construct();
-        $this->client = new BosClient(json_decode(__BOS_TEST_CONFIG, true));
+        $this->client = new baidubce_services_bos_BosClient(json_decode(__BOS_TEST_CONFIG, true));
 
         $id = rand();
         $this->bucket = sprintf('test-bucket%d', $id);
@@ -80,10 +76,10 @@ class BosClientTest extends PHPUnit_Framework_TestCase {
     }
 
     public function testListBuckets() {
-        $time1 = Time::BceTimeNow();
+        $time1 = baidubce_util_Time::BceTimeNow();
         $this->client->createBucket('aaaaaaxzr1');
 
-        $time2 = Time::BceTimeNow();
+        $time2 = baidubce_util_Time::BceTimeNow();
         $this->client->createBucket('aaaaaaxzr2');
 
         $response = $this->client->listBuckets();
@@ -115,7 +111,7 @@ class BosClientTest extends PHPUnit_Framework_TestCase {
         try {
             $response = $this->client->createBucket($this->bucket);
         }
-        catch(\baidubce\exception\BceServiceException $ex) {
+        catch(baidubce_exception_BceServiceException $ex) {
             $this->assertEquals('BucketAlreadyExists', $ex->getServiceErrorCode());
             $this->assertEquals(409, $ex->getStatusCode());
         }
@@ -125,7 +121,7 @@ class BosClientTest extends PHPUnit_Framework_TestCase {
         try {
             $this->client->deleteBucket($this->bucket);
         }
-        catch(\baidubce\exception\BceServiceException $ex) {
+        catch(baidubce_exception_BceServiceException $ex) {
             $this->assertEquals(404, $ex->getStatusCode());
             $this->assertEquals('NoSuchBucket', $ex->getServiceErrorCode());
         }
@@ -445,7 +441,7 @@ class BosClientTest extends PHPUnit_Framework_TestCase {
                 'x-bce-copy-source-if-match' => "\"" . md5('hello world') . "\""
             ));
         }
-        catch(\baidubce\exception\BceServiceException $ex) {
+        catch(baidubce_exception_BceServiceException $ex) {
             $this->assertEquals(412, $ex->getStatusCode());
             $this->assertEquals('PreconditionFailed', $ex->getServiceErrorCode());
         }
@@ -504,7 +500,7 @@ class BosClientTest extends PHPUnit_Framework_TestCase {
         try {
             $this->client->completeMultipartUpload($this->bucket, $this->key, $upload_id, $part_list);
         }
-        catch(\baidubce\exception\BceServiceException $ex) {
+        catch(baidubce_exception_BceServiceException $ex) {
             $this->assertEquals(400, $ex->getStatusCode());
             $this->assertEquals('EntityTooSmall', $ex->getServiceErrorCode());
         }
@@ -560,6 +556,10 @@ class BosClientTest extends PHPUnit_Framework_TestCase {
         $this->assertEquals(md5_file($this->filename), $response['http_headers']['ETag']);
     }
 
+    private function make_part_list_on_partnumber_order($a, $b) {
+        return ($a['partNumber'] < $b['partNumber']) ? -1 : 1;
+    }
+
     public function testMultipartUploadWithRandomPartNumberOrder() {
         // multipartUpload support random partNumber order
         $file_size = 20 * 1024 * 1024 + 317;
@@ -603,10 +603,7 @@ class BosClientTest extends PHPUnit_Framework_TestCase {
             );
             $etags[$part_number - 1] = $response['http_headers']['ETag'];
         }
-        $make_part_list_on_partnumber_order = function($a, $b) {
-            return ($a['partNumber'] < $b['partNumber']) ? -1 : 1;
-        };
-        usort($part_list, $make_part_list_on_partnumber_order);
+        usort($part_list, array($this, 'make_part_list_on_partnumber_order'));
 
         $response = $this->client->completeMultipartUpload($this->bucket, $this->key,
             $upload_id, $part_list);
@@ -671,7 +668,7 @@ class BosClientTest extends PHPUnit_Framework_TestCase {
         $this->checkProperties($response);
         $this->assertEquals(200, $response['status']);
         $this->assertEquals($file_size, $response['http_headers']['Content-Length']);
-        $this->assertEquals(Coder::guessMimeType($this->key), $response['http_headers']['Content-Type']);
+        $this->assertEquals(baidubce_util_Coder::guessMimeType($this->key), $response['http_headers']['Content-Type']);
         $this->assertEquals('-' . md5($etags), $response['http_headers']['ETag']);
     }
 
@@ -679,11 +676,11 @@ class BosClientTest extends PHPUnit_Framework_TestCase {
         $this->client->createBucket($this->bucket);
         $this->prepareTemporaryFile(5 * 1024 * 1024);
 
-        $time1 = Time::BceTimeNow();
+        $time1 = baidubce_util_Time::BceTimeNow();
         $response = $this->client->initiateMultipartUpload($this->bucket, $this->key);
         $upload_id = $response['body']['uploadId'];
 
-        $time2 = Time::BceTimeNow();
+        $time2 = baidubce_util_Time::BceTimeNow();
         $offset = 0;
         $size = 100;
         $part_number = 1;
@@ -717,11 +714,11 @@ class BosClientTest extends PHPUnit_Framework_TestCase {
     public function testListMultipartUploads() {
         $this->client->createBucket($this->bucket);
 
-        $time1 = Time::BceTimeNow();
+        $time1 = baidubce_util_Time::BceTimeNow();
         $response = $this->client->initiateMultipartUpload($this->bucket, 'aaa');
         $upload_id1 = $response['body']['uploadId'];
 
-        $time2 = Time::BceTimeNow();
+        $time2 = baidubce_util_Time::BceTimeNow();
         $response = $this->client->initiateMultipartUpload($this->bucket, 'bbb');
         $upload_id2 = $response['body']['uploadId'];
 
@@ -813,7 +810,7 @@ class BosClientTest extends PHPUnit_Framework_TestCase {
         }
 
         $response = $this->client->completeMultipartUpload($this->bucket, $object_name,
-            $upload_id, $part_list, array('Content-Type' => Coder::guessMimeType($large_file)));
+            $upload_id, $part_list, array('Content-Type' => baidubce_util_Coder::guessMimeType($large_file)));
         $this->checkProperties($response);
         $this->assertEquals(200, $response['status']);
         $this->assertArrayHasKey('location', $response['body']);

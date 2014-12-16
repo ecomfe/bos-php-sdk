@@ -13,7 +13,7 @@
  */
 
 namespace baidubce\model\stream;
-require_once __DIR__ . "/BceOutputStream.php";
+require_once dirname(__FILE__) . "/BceOutputStream.php";
 
 class BceFileOutputStream extends BceOutputStream {
     function __construct($file_name) {

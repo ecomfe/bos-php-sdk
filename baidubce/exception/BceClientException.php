@@ -12,9 +12,7 @@
  * specific language governing permissions and limitations under the License.
  */
 
-namespace baidubce\exception;
-
-class BceClientException extends BceBaseException {
+class baidubce_exception_BceClientException extends baidubce_exception_BceBaseException {
     /**
      * @param string $message The exception message.
      */

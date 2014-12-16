@@ -12,31 +12,27 @@
  * specific language governing permissions and limitations under the License.
  */
 
-namespace baidubce\model\stream;
+require_once dirname(__FILE__) . "/BceBaseStream.php";
+require_once dirname(__FILE__) . "/../../exception/BceRuntimeException.php";
 
-require_once __DIR__ . "/BceBaseStream.php";
-require_once dirname(dirname(__DIR__)) . "/exception/BceRuntimeException.php";
-
-use baidubce\exception\BceRuntimeException;
-
-class BceInputStream extends BceBaseStream {
+class baidubce_model_stream_BceInputStream extends baidubce_model_stream_BceBaseStream {
     public function read($size) {
-        throw new BceRuntimeException("BceInputStream", "read");
+        throw new baidubce_exception_BceRuntimeException("BceInputStream", "read");
     }
 
     public function readAll() {
-        throw new BceRuntimeException("BceInputStream", "readAll");
+        throw new baidubce_exception_BceRuntimeException("BceInputStream", "readAll");
     }
 
     public function getSize() {
-        throw new BceRuntimeException("BceInputStream", "getSize");
+        throw new baidubce_exception_BceRuntimeException("BceInputStream", "getSize");
     }
 
     public function seek($pos) {
-        throw new BceRuntimeException("BceInputStream", "seek");
+        throw new baidubce_exception_BceRuntimeException("BceInputStream", "seek");
     }
 
     public function getPosition() {
-        throw new BceRuntimeException("BceInputStream", "getPosition");
+        throw new baidubce_exception_BceRuntimeException("BceInputStream", "getPosition");
     }
 } 

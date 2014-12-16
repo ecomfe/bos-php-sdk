@@ -11,21 +11,15 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-namespace baidubce\services\bos;
+require_once dirname(__FILE__) . "/BosClient.php";
+require_once dirname(__FILE__) . "/BosHttpClient.php";
+require_once dirname(__FILE__) . "/../../util/Coder.php";
 
-require_once __DIR__ . "/BosClient.php";
-require_once __DIR__ . "/BosHttpClient.php";
+define('MIN_PART_SIZE', 5242880);      // 5M
+define('MAX_PART_SIZE', 5368709120);   // 5G
+define('MAX_PARTS', 10000);
 
-require_once dirname(dirname(__DIR__)) . "/util/Coder.php";
-
-use baidubce\util\Coder;
-use baidubce\services\bos\BosHttpClient;
-use baidubce\exception\BceIllegalArgumentException;
-
-class BosClient {
-    const MIN_PART_SIZE = 5242880;      // 5M
-    const MAX_PART_SIZE = 5368709120;   // 5G
-    const MAX_PARTS     = 10000;
+class baidubce_services_bos_BosClient {
 
     /**
      * @type BosHttpClient
@@ -44,7 +38,7 @@ class BosClient {
      */
     function __construct(array $config) {
         $this->config = $config;
-        $this->http_client = new BosHttpClient($config);
+        $this->http_client = new baidubce_services_bos_BosHttpClient($config);
     }
 
     // --- B E G I N ---
@@ -207,12 +201,12 @@ class BosClient {
         list($headers, $params) = $this->checkOptions($options);
 
         if (empty($object_name)) {
-            throw new BceIllegalArgumentException("Object name is empty.");
+            throw new baidubce_exception_BceIllegalArgumentException("Object name is empty.");
         }
 
         $content_length = strlen($input_content);
-        if ($content_length > BosClient::MAX_PART_SIZE) {
-            throw new BceIllegalArgumentException("File size is too large.");
+        if ($content_length > MAX_PART_SIZE) {
+            throw new baidubce_exception_BceIllegalArgumentException("File size is too large.");
         }
 
         if (!isset($headers['Content-MD5'])) {
@@ -222,7 +216,7 @@ class BosClient {
 
         if (!isset($headers['Content-Type'])) {
             // Return the default content-type
-            $headers['Content-Type'] = Coder::guessMimeType('');
+            $headers['Content-Type'] = baidubce_util_Coder::guessMimeType('');
         }
 
         return $this->http_client->sendRequest('PUT',
@@ -243,7 +237,7 @@ class BosClient {
         list($headers, $params) = $this->checkOptions($options);
 
         if (!isset($headers['Content-Type'])) {
-            $headers['Content-Type'] = Coder::guessMimeType($file_name);
+            $headers['Content-Type'] = baidubce_util_Coder::guessMimeType($file_name);
         }
 
         $fp = fopen($file_name, 'rb');
@@ -281,19 +275,19 @@ class BosClient {
         $offset = 0, $length = 0, $headers = array(), $params = array()) {
 
         if (empty($object_name)) {
-            throw new BceIllegalArgumentException("Object name is empty.");
+            throw new baidubce_exception_BceIllegalArgumentException("Object name is empty.");
         }
 
         if ($length <= 0) {
             $length = $file_size;
         }
 
-        if ($length > BosClient::MAX_PART_SIZE) {
-            throw new BceIllegalArgumentException("File size is too large.");
+        if ($length > MAX_PART_SIZE) {
+            throw new baidubce_exception_BceIllegalArgumentException("File size is too large.");
         }
 
         if (!isset($headers['Content-MD5'])) {
-            $md5 = Coder::md5FromStream($fp, $offset, $length, true);
+            $md5 = baidubce_util_Coder::md5FromStream($fp, $offset, $length, true);
             $headers['Content-MD5'] = base64_encode($md5);
         }
 
@@ -321,7 +315,7 @@ class BosClient {
         $offset, $length, $headers, $params) {
 
         if ($offset + $length > $file_size) {
-            throw new BceIllegalArgumentException(
+            throw new baidubce_exception_BceIllegalArgumentException(
                 sprintf("Invalid offset error. offset = [%d], length = [%d], file_size = [%d]",
                     $offset, $length, $file_size));
         }
@@ -429,17 +423,17 @@ class BosClient {
         $target_bucket, $target_key, $options = array()) {
 
         if (empty($source_bucket) || empty($target_bucket)) {
-            throw new BceIllegalArgumentException('Bucket is empty.');
+            throw new baidubce_exception_BceIllegalArgumentException('Bucket is empty.');
         }
 
         if (empty($source_key) || empty($target_key)) {
-            throw new BceIllegalArgumentException('Key is empty.');
+            throw new baidubce_exception_BceIllegalArgumentException('Key is empty.');
         }
 
         list($headers, $params) = $this->checkOptions($options);
 
         $copy_source = sprintf("/%s/%s", $source_bucket, $source_key);
-        $headers['x-bce-copy-source'] = Coder::urlEncodeExceptSlash($copy_source);
+        $headers['x-bce-copy-source'] = baidubce_util_Coder::urlEncodeExceptSlash($copy_source);
 
         return $this->http_client->sendRequest('PUT',
             $target_bucket, $target_key, $headers, '', $params);
@@ -455,7 +449,8 @@ class BosClient {
      * @return mixed
      */
     public function initiateMultipartUpload($bucket_name, $object_name, $file_name = '') {
-        $content_type = empty($file_name) ? Coder::guessMimeType($object_name) : Coder::guessMimeType($file_name);
+        $content_type = empty($file_name) ? baidubce_util_Coder::guessMimeType($object_name)
+                                          : baidubce_util_Coder::guessMimeType($file_name);
         $headers = array(
             'Content-Type' => $content_type,
         );
@@ -495,15 +490,15 @@ class BosClient {
     public function uploadPart($bucket_name, $object_name, $file_name,
         $offset, $part_size, $upload_id, $part_number, $options = array()) {
 
-        if ($part_number < 1 || $part_number > BosClient::MAX_PARTS) {
-            throw new BceIllegalArgumentException("Invalid part number.");
+        if ($part_number < 1 || $part_number > MAX_PARTS) {
+            throw new baidubce_exception_BceIllegalArgumentException("Invalid part number.");
         }
 
-        // Only the last part's size can less than BosClient::MIN_PART_SIZE, but
+        // Only the last part's size can less than MIN_PART_SIZE, but
         // we don't know the total part count, so we have no way to do this check.
-        if ($part_size >= BosClient::MAX_PART_SIZE) {
-            throw new BceIllegalArgumentException(
-                sprintf("Invalid size, the maximum part size is %d" . BosClient::MAX_PART_SIZE));
+        if ($part_size >= MAX_PART_SIZE) {
+            throw new baidubce_exception_BceIllegalArgumentException(
+                sprintf("Invalid size, the maximum part size is %d", MAX_PART_SIZE));
         }
 
         list($headers, $params) = $this->checkOptions($options);
@@ -511,7 +506,7 @@ class BosClient {
         $params['uploadId'] = $upload_id;
 
         if (!isset($headers['Content-Type'])) {
-            $headers['Content-Type'] = Coder::guessMimeType($file_name);
+            $headers['Content-Type'] = baidubce_util_Coder::guessMimeType($file_name);
         }
 
         $file_size = filesize($file_name);

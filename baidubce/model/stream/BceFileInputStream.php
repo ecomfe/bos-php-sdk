@@ -16,7 +16,7 @@ namespace baidubce\model\stream;
 
 use baidubce\exception\BceRuntimeException;
 
-require_once __DIR__ . "/BceInputStream.php";
+require_once dirname(__FILE__) . "/BceInputStream.php";
 
 class BceFileInputStream extends BceInputStream {
     private $file_handle;
