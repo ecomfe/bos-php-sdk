@@ -24,6 +24,9 @@ class BceBaseError extends \Exception {
  * Error from BCE client.
  */
 class BceClientError extends BceBaseError {
+    /**
+     * @param string $reason The failed reason
+     */
     public function __construct($reason) {
         parent::__construct($response);
     }
@@ -37,6 +40,13 @@ class BceServerError extends BceBaseError {
     public $code;
     public $request_id;
 
+
+    /**
+     * @param string $message The failed message.
+     * @param number $status_code The http response status code.
+     * @param string $code The server failed code.
+     * @param string $request_id The request id.
+     */
     public function __construct($message, $status_code = null,
                                 $code = null, $request_id = null) {
         parent::__construct($message);
@@ -45,6 +55,9 @@ class BceServerError extends BceBaseError {
         $this->request_id = $request_id;
     }
 
+    /**
+     * @return string The debug message.
+     */
     public function __toString() {
         return sprintf("%s, status_code = [%s], code = [%s], request_id = [%s]",
             empty($this->message) ? '(empty)' : $this->message,

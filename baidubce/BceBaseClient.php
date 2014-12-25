@@ -33,11 +33,15 @@ class BceBaseClient {
         $this->region_supported = $region_supported;
 
         if (!isset($this->config['endpoint'])) {
-            $this->config['endpoint'] = $this->_computeEndpoint();
+            $this->config['endpoint'] = $this->computeEndpoint();
         }
     }
 
-    private function _computeEndpoint() {
+    /**
+     * compute endpoint based on the configuration and service id
+     * @return string The endpoint
+     */
+    private function computeEndpoint() {
         if (isset($this->config['endpoint'])) {
             return $this->config['endpoint'];
         }

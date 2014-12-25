@@ -47,6 +47,13 @@ class HttpClient {
         $this->config = $config;
     }
 
+    /**
+     * The curl_setopt only accept string list, so we change the header map
+     * to header list format.
+     *
+     * @param mixed $headers The http headers which will be sent out.
+     * @return mixed
+     */
     private function generateRequestHeaders($headers) {
         $request_headers = array();
         foreach ($headers as $key => $val) {
@@ -58,6 +65,10 @@ class HttpClient {
         return $request_headers;
     }
 
+    /**
+     * @param mixed $body The request body.
+     * @return number
+     */
     private function guessContentLength($body) {
         if (is_null($body)) {
             return 0;
@@ -106,14 +117,15 @@ class HttpClient {
     /**
      * Send request to BCE.
      *
-     * @param {string} $http_method The http request method, uppercase.
-     * @param {string} $path The resource path.
-     * @param {string} $body The http request body.
-     * @param {mixed} $headers The extra http request headers.
-     * @param {mixed} $params The extra http url query strings.
-     * @param {?mixed} $output_stream Write the http response to this stream.
+     * @param string $http_method The http request method, uppercase.
+     * @param string $path The resource path.
+     * @param string $body The http request body.
+     * @param mixed $headers The extra http request headers.
+     * @param mixed $params The extra http url query strings.
+     * @param mixed $sign_function This function will genenrate authorization header.
+     * @param mixed $output_stream Write the http response to this stream.
      *
-     * @return mixed status, body, http_headers
+     * @return mixed body and http_headers
      */
     public function sendRequest($http_method, $path, $body = null, $headers = array(),
                                 $params = array(), $sign_function = null, $output_stream = null) {
@@ -249,6 +261,12 @@ class HttpClient {
         );
     }
 
+    /**
+     * @param mixed $http_response The http response body.
+     * @param string $content_type The http response content type.
+     *
+     * @return mixed json decoded or the raw response body.
+     */
     private function parseHttpResponseBody($http_response, $content_type) {
         if ($http_response === '' || $http_response === true) {
             // $http_response === true means the response body was handled by $output_stream.

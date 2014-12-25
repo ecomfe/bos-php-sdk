@@ -20,6 +20,9 @@ class Bce {
     const URL_PREFIX = '/v1';
     const DEFAULT_ENCODING = 'UTF-8';
 
+    /**
+     * @return mixed The default bce configuration.
+     */
     public static function getDefaultConfig() {
         return array(
             'credentials' => null,

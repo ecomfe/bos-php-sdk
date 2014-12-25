@@ -81,7 +81,7 @@ class BosClient extends BceBaseClient {
 
         $config = array_merge(array(), $this->config, $config);
 
-        $path = $this->_getPath($config, $bucket_name, $key);
+        $path = $this->getPath($config, $bucket_name, $key);
 
         $headers[HttpHeaders::HOST] = preg_replace('/(\w+:\/\/)?([^\/]+)\/?/', '$2',
             $config['endpoint']);
@@ -97,10 +97,12 @@ class BosClient extends BceBaseClient {
     /**
      * List buckets of user.
      *
+     * @param mixed $config The optional bce configuration, which will overwrite the
+     *   default configuration that was passed while creating BosClient instance.
      * @return mixed All of the available buckets.
      */
     public function listBuckets($config = array()) {
-        return $this->_sendRequest(HttpMethod::GET, array(
+        return $this->sendRequest(HttpMethod::GET, array(
             'config' => $config,
         ));
     }
@@ -109,11 +111,12 @@ class BosClient extends BceBaseClient {
      * Create a new bucket.
      *
      * @param string $bucket_name The bucket name.
-     *
+     * @param mixed $config The optional bce configuration, which will overwrite the
+     *   default configuration that was passed while creating BosClient instance.
      * @return mixed
      */
     public function createBucket($bucket_name, $config = array()) {
-        return $this->_sendRequest(HttpMethod::PUT, array(
+        return $this->sendRequest(HttpMethod::PUT, array(
             'bucket_name' => $bucket_name,
             'config' => $config,
         ));
@@ -123,11 +126,12 @@ class BosClient extends BceBaseClient {
      * Get Object Information of bucket.
      *
      * @param string $bucket_name The bucket name.
-     * @param string $delimiter The default value is null.
-     * @param string $marker The default value is null.
      * @param number $max_keys The default value is 1000.
      * @param string $prefix The default value is null.
-     *
+     * @param string $marker The default value is null.
+     * @param string $delimiter The default value is null.
+     * @param mixed $config The optional bce configuration, which will overwrite the
+     *   default configuration that was passed while creating BosClient instance.
      * @return mixed
      */
     public function listObjects($bucket_name, $max_keys = 1000,
@@ -139,7 +143,7 @@ class BosClient extends BceBaseClient {
         if (!is_null($marker)) { $params['marker'] = $marker; }
         if (!is_null($delimiter)) { $params['delimiter'] = $delimiter; }
 
-        return $this->_sendRequest(HttpMethod::GET, array(
+        return $this->sendRequest(HttpMethod::GET, array(
             'bucket_name' => $bucket_name,
             'params' => $params,
             'config' => $config,
@@ -150,12 +154,13 @@ class BosClient extends BceBaseClient {
      * Check whether there is some user access to this bucket.
      *
      * @param string $bucket_name The bucket name.
-     *
+     * @param mixed $config The optional bce configuration, which will overwrite the
+     *   default configuration that was passed while creating BosClient instance.
      * @return boolean true means the bucket does exists.
      */
     public function doesBucketExist($bucket_name, $config = array()) {
         try {
-            $this->_sendRequest(HttpMethod::HEAD, array(
+            $this->sendRequest(HttpMethod::HEAD, array(
                 'bucket_name' => $bucket_name,
                 'config' => $config,
             ));
@@ -173,15 +178,18 @@ class BosClient extends BceBaseClient {
     }
 
     /**
-     * Delete a Bucket(Must Delete all the Object in Bucket before)
+     * Delete a Bucket
+     * Must delete all the bbjects in this bucket before call this api
      *
      * @param string $bucket_name The bucket name.
+     * @param mixed $config The optional bce configuration, which will overwrite the
+     *   default configuration that was passed while creating BosClient instance.
      * @return mixed
      */
     public function deleteBucket($bucket_name, $config = array()) {
-        return $this->_sendRequest(HttpMethod::DELETE, array(
+        return $this->sendRequest(HttpMethod::DELETE, array(
             'bucket_name' => $bucket_name,
-            'config' => $config
+            'config' => $config,
         ));
     }
 
@@ -189,11 +197,13 @@ class BosClient extends BceBaseClient {
      * Set Access Control Level of bucket
      *
      * @param string $bucket_name The bucket name.
-     * @param string $acl The grant list.
+     * @param string $canned_acl The grant list.
+     * @param mixed $config The optional bce configuration, which will overwrite the
+     *   default configuration that was passed while creating BosClient instance.
      * @return mixed
      */
     public function setBucketCannedAcl($bucket_name, $canned_acl, $config = array()) {
-        return $this->_sendRequest(HttpMethod::PUT, array(
+        return $this->sendRequest(HttpMethod::PUT, array(
             'bucket_name' => $bucket_name,
             'headers' => array(
                 HttpHeaders::BCE_ACL => $canned_acl,
@@ -208,10 +218,12 @@ class BosClient extends BceBaseClient {
      *
      * @param string $bucket_name The bucket name.
      * @param mixed $acl The grant list.
+     * @param mixed $config The optional bce configuration, which will overwrite the
+     *   default configuration that was passed while creating BosClient instance.
      * @return mixed
      */
     public function setBucketAcl($bucket_name, $acl, $config = array()) {
-        return $this->_sendRequest(HttpMethod::PUT, array(
+        return $this->sendRequest(HttpMethod::PUT, array(
             'bucket_name' => $bucket_name,
             'body' => json_encode(array('accessControlList' => $acl)),
             'headers' => array(
@@ -226,10 +238,12 @@ class BosClient extends BceBaseClient {
      * Get Access Control Level of bucket
      *
      * @param string $bucket_name The bucket name.
+     * @param mixed $config The optional bce configuration, which will overwrite the
+     *   default configuration that was passed while creating BosClient instance.
      * @return mixed
      */
     public function getBucketAcl($bucket_name, $config = array()) {
-        return $this->_sendRequest(HttpMethod::GET, array(
+        return $this->sendRequest(HttpMethod::GET, array(
             'bucket_name' => $bucket_name,
             'params' => array('acl' => ''),
             'config' => $config,
@@ -240,9 +254,11 @@ class BosClient extends BceBaseClient {
      * Create object and put content of string to the object
      *
      * @param string $bucket_name The bucket name.
-     * @param string $object_name The object path.
-     * @param string $input_content The object content.
-     * @param mixed $options
+     * @param string $key The object path.
+     * @param string $data The object content.
+     * @param mixed $headers The http request headers.
+     * @param mixed $config The optional bce configuration, which will overwrite the
+     *   default configuration that was passed while creating BosClient instance.
      *
      * @return mixed
      */
@@ -260,9 +276,11 @@ class BosClient extends BceBaseClient {
      * Put object and copy content of file to the object
      *
      * @param string $bucket_name The bucket name.
-     * @param string $object_name The object path.
-     * @param string $file_name The absolute file path.
-     * @param mixed $options
+     * @param string $key The object path.
+     * @param string $filename The absolute file path.
+     * @param mixed $headers The http request headers.
+     * @param mixed $config The optional bce configuration, which will overwrite the
+     *   default configuration that was passed while creating BosClient instance.
      *
      * @return mixed
      */
@@ -287,9 +305,19 @@ class BosClient extends BceBaseClient {
         }
     }
 
+    /**
+     * Get the object from a bucket.
+     *
+     * @param string $bucket_name The bucket name.
+     * @param string $key The object path.
+     * @param string $range If specified, only get the range part.
+     * @param mixed $config The optional bce configuration, which will overwrite the
+     *   default configuration that was passed while creating BosClient instance.
+     * @return mixed
+     */
     public function getObject($bucket_name, $key, $range = null, $config = array()) {
         $output_stream = fopen('php://memory', 'r+');
-        $response = $this->_sendRequest(HttpMethod::GET, array(
+        $response = $this->sendRequest(HttpMethod::GET, array(
             'bucket_name' => $bucket_name,
             'key' => $key,
             'headers' =>  array(
@@ -305,6 +333,16 @@ class BosClient extends BceBaseClient {
         return $response;
     }
 
+    /**
+     * Get the object cotent as string
+     *
+     * @param string $bucket_name The bucket name.
+     * @param string $key The object path.
+     * @param string $range If specified, only get the range part.
+     * @param mixed $config The optional bce configuration, which will overwrite the
+     *   default configuration that was passed while creating BosClient instance.
+     * @return mixed
+     */
     public function getObjectAsString($bucket_name, $key, $range = null, $config = array()) {
         $response = $this->getObject($bucket_name, $key, $range, $config);
         return $response['body'];
@@ -314,16 +352,18 @@ class BosClient extends BceBaseClient {
      * Get Content of Object and Put Content to File
      *
      * @param string $bucket_name The bucket name.
-     * @param string $object_name The object path.
-     * @param string $file_name The destination file name.
+     * @param string $key The object path.
+     * @param string $filename The destination file name.
      * @param string $range The HTTP 'Range' header.
+     * @param mixed $config The optional bce configuration, which will overwrite the
+     *   default configuration that was passed while creating BosClient instance.
      *
      * @return mixed
      */
     public function getObjectToFile($bucket_name, $key, $filename, $range = null, $config = array()) {
         $output_stream = fopen($filename, 'w+');
         try {
-            $response = $this->_sendRequest(HttpMethod::GET, array(
+            $response = $this->sendRequest(HttpMethod::GET, array(
                 'bucket_name' => $bucket_name,
                 'key' => $key,
                 'headers' => array(
@@ -345,18 +385,30 @@ class BosClient extends BceBaseClient {
      * Delete Object
      *
      * @param string $bucket_name The bucket name.
-     * @param string $object_name The object path.
+     * @param string $key The object path.
+     * @param mixed $config The optional bce configuration, which will overwrite the
+     *   default configuration that was passed while creating BosClient instance.
      *
      * @return mixed
      */
     public function deleteObject($bucket_name, $key, $config = array()) {
-        return $this->_sendRequest(HttpMethod::DELETE, array(
+        return $this->sendRequest(HttpMethod::DELETE, array(
             'bucket_name' => $bucket_name,
             'key' => $key,
             'config' => $config,
         ));
     }
 
+    /**
+     * Upload a object to one bucket
+     * @param string $bucket_name The bucket name.
+     * @param string $key The object path.
+     * @param mixed $data The object content, which can be a string or a resource.
+     * @param mixed $headers The http request headers.
+     * @param mixed $config The optional bce configuration, which will overwrite the
+     *   default configuration that was passed while creating BosClient instance.
+     * @return mixed
+     */
     public function putObject($bucket_name, $key, $data,
                               $headers = array(), $config = array()) {
 
@@ -364,9 +416,9 @@ class BosClient extends BceBaseClient {
             throw new \InvalidArgumentException('key should not be empty.');
         }
 
-        list($object_headers, $has_user_metadata) = $this->_prepareObjectHeaders($headers);
+        list($object_headers, $has_user_metadata) = $this->prepareObjectHeaders($headers);
 
-        return $this->_sendRequest(HttpMethod::PUT, array(
+        return $this->sendRequest(HttpMethod::PUT, array(
             'bucket_name' => $bucket_name,
             'key' => $key,
             'body' => $data,
@@ -379,12 +431,14 @@ class BosClient extends BceBaseClient {
      * Get Object meta information
      *
      * @param string $bucket_name The bucket name.
-     * @param string $object_name The object path.
+     * @param string $key The object path.
+     * @param mixed $config The optional bce configuration, which will overwrite the
+     *   default configuration that was passed while creating BosClient instance.
      *
      * @return mixed
      */
     public function getObjectMetadata($bucket_name, $key, $config = array()) {
-        return $this->_sendRequest(HttpMethod::HEAD, array(
+        return $this->sendRequest(HttpMethod::HEAD, array(
             'bucket_name' => $bucket_name,
             'key' => $key,
             'config' => $config,
@@ -394,11 +448,13 @@ class BosClient extends BceBaseClient {
     /**
      * Copy one object to another.
      *
-     * @param string $source_bucket The source bucket name.
+     * @param string $source_bucket_name The source bucket name.
      * @param string $source_key The source object path.
-     * @param string $target_bucket The target bucket name.
+     * @param string $target_bucket_name The target bucket name.
      * @param string $target_key The target object path.
-     * @param mixed $options
+     * @param mixed $headers The http request headers.
+     * @param mixed $config The optional bce configuration, which will overwrite the
+     *   default configuration that was passed while creating BosClient instance.
      *
      * @return mixed
      */
@@ -411,7 +467,7 @@ class BosClient extends BceBaseClient {
         if (empty($target_bucket_name)) { throw new \InvalidArgumentException('target_bucket_name should not be empty or None.'); }
         if (empty($target_key)) { throw new \InvalidArgumentException('target_key should not be empty or None.'); }
 
-        list($object_headers, $has_user_metadata) = $this->_prepareObjectHeaders($headers);
+        list($object_headers, $has_user_metadata) = $this->prepareObjectHeaders($headers);
 
         $object_headers[HttpHeaders::BCE_COPY_SOURCE] = Coder::urlEncodeExceptSlash(
             sprintf("/%s/%s", $source_bucket_name, $source_key));
@@ -422,7 +478,7 @@ class BosClient extends BceBaseClient {
         $object_headers[HttpHeaders::BCE_COPY_METADATA_DIRECTIVE] =
             $has_user_metadata ? 'replace' : 'copy';
 
-        return $this->_sendRequest(HttpMethod::PUT, array(
+        return $this->sendRequest(HttpMethod::PUT, array(
             'bucket_name' => $target_bucket_name,
             'key' => $target_key,
             'headers' => $object_headers,
@@ -434,8 +490,9 @@ class BosClient extends BceBaseClient {
      * Initialize multi_upload_file.
      *
      * @param string $bucket_name The bucket name.
-     * @param string $object_name The object path.
-     * @param string $file_name Init the content-type by file name extension.
+     * @param string $key The object path.
+     * @param mixed $config The optional bce configuration, which will overwrite the
+     *   default configuration that was passed while creating BosClient instance.
      *
      * @return mixed
      */
@@ -444,7 +501,7 @@ class BosClient extends BceBaseClient {
         $headers = array(
             HttpHeaders::CONTENT_TYPE => $content_type,
         );
-        return $this->_sendRequest(HttpMethod::POST, array(
+        return $this->sendRequest(HttpMethod::POST, array(
             'bucket_name' => $bucket_name,
             'key' => $key,
             'params' => array('uploads' => ''),
@@ -457,13 +514,15 @@ class BosClient extends BceBaseClient {
      * Abort upload a part which is being uploading.
      *
      * @param string $bucket_name The bucket name.
-     * @param string $object_name The object path.
+     * @param string $key The object path.
      * @param string $upload_id The uploadId returned by initiateMultipartUpload.
+     * @param mixed $config The optional bce configuration, which will overwrite the
+     *   default configuration that was passed while creating BosClient instance.
      *
      * @return mixed
      */
     public function abortMultipartUpload($bucket_name, $key, $upload_id, $config = array()) {
-        return $this->_sendRequest(HttpMethod::DELETE, array(
+        return $this->sendRequest(HttpMethod::DELETE, array(
             'bucket_name' => $bucket_name,
             'key' => $key,
             'params' => array('uploadId' => $upload_id),
@@ -471,16 +530,17 @@ class BosClient extends BceBaseClient {
     }
 
     /**
-     * Upload a part from starting with offset.
+     * Upload a part from a file handle
      *
      * @param string $bucket_name The bucket name.
-     * @param string $object_name The object path.
-     * @param string $file_name The file which will be uploaded.
-     * @param number $offset The file offset.
-     * @param number $part_size The uploaded part size.
+     * @param string $key The object path.
      * @param string $upload_id The uploadId returned by initiateMultipartUpload.
-     * @param number $part_number The part index.
-     * @param mixed $options The extra http request headers or params.
+     * @param number $part_number The part index, 1-based.
+     * @param number $part_size The uploaded part size.
+     * @param string $part_fp The file pointer.
+     * @param number $part_md5 The part md5 check sum.
+     * @param mixed $config The optional bce configuration, which will overwrite the
+     *   default configuration that was passed while creating BosClient instance.
      *
      * @return mixed
      */
@@ -505,7 +565,7 @@ class BosClient extends BceBaseClient {
             HttpHeaders::CONTENT_MD5 => $part_md5,
         );
 
-        return $this->_sendRequest(HttpMethod::PUT, array(
+        return $this->sendRequest(HttpMethod::PUT, array(
             'bucket_name' => $bucket_name,
             'key' => $key,
             'body' => $part_fp,
@@ -515,6 +575,22 @@ class BosClient extends BceBaseClient {
         ));
     }
 
+    /**
+     * Upload a part from starting with offset.
+     *
+     * @param string $bucket_name The bucket name.
+     * @param string $key The object path.
+     * @param string $upload_id The uploadId returned by initiateMultipartUpload.
+     * @param number $part_number The part index, 1-based.
+     * @param number $part_size The uploaded part size.
+     * @param string $filename The file name.
+     * @param number $offset The file offset.
+     * @param number $part_md5 The part md5 check sum.
+     * @param mixed $config The optional bce configuration, which will overwrite the
+     *   default configuration that was passed while creating BosClient instance.
+     *
+     * @return mixed
+     */
     public function uploadPartFromFile($bucket_name, $key, $upload_id,
                                        $part_number, $part_size, $filename, $offset,
                                        $part_md5 = null, $config = array()) {
@@ -540,10 +616,14 @@ class BosClient extends BceBaseClient {
      * List all the parts that have been upload success.
      *
      * @param string $bucket_name The bucket name.
-     * @param string $object_name The object path.
+     * @param string $key The object path.
      * @param string $upload_id The uploadId returned by initiateMultipartUpload.
-     * @param number $max_keys The maximum size of returned parts, default 1000, maximum value is 1000.
-     * @param string $part_number_marker Sort by uploaded partnumber, and returned parts from this given value.
+     * @param number $max_parts The maximum size of returned parts, default 1000,
+     *   maximum value is 1000.
+     * @param string $part_number_marker Sort by uploaded partnumber, and returned
+     *   parts from this given value.
+     * @param mixed $config The optional bce configuration, which will overwrite the
+     *   default configuration that was passed while creating BosClient instance.
      *
      * @return mixed
      */
@@ -561,7 +641,7 @@ class BosClient extends BceBaseClient {
         if (!is_null($max_parts)) { $params['maxParts'] = $max_parts; }
         if (!is_null($part_number_marker)) { $params['partNumberMarker'] = $part_number_marker; }
 
-        return $this->_sendRequest(HttpMethod::GET, array(
+        return $this->sendRequest(HttpMethod::GET, array(
             'bucket_name' => $bucket_name,
             'key' => $key,
             'params' => $params,
@@ -572,11 +652,14 @@ class BosClient extends BceBaseClient {
     /**
      * After finish all the task, complete multi_upload_file.
      * bucket, key, upload_id, part_list, options=None
+     *
      * @param string $bucket_name The bucket name.
-     * @param string $object_name The object path.
+     * @param string $key The object path.
      * @param string $upload_id The upload id.
      * @param mixed $part_list (partnumber and etag) list
-     * @param mixed $options extra http request header and params.
+     * @param mixed $headers The extra http request headers.
+     * @param mixed $config The optional bce configuration, which will overwrite the
+     *   default configuration that was passed while creating BosClient instance.
      *
      * @return mixed
      */
@@ -585,9 +668,9 @@ class BosClient extends BceBaseClient {
                                             $config = array()) {
 
         $headers[HttpHeaders::CONTENT_TYPE] = HttpContentTypes::JSON;
-        list($object_headers, $has_user_metadata) = $this->_prepareObjectHeaders($headers);
+        list($object_headers, $has_user_metadata) = $this->prepareObjectHeaders($headers);
 
-        return $this->_sendRequest(HttpMethod::POST, array(
+        return $this->sendRequest(HttpMethod::POST, array(
             'bucket_name' => $bucket_name,
             'key' => $key,
             'body' => json_encode(array('parts' => $part_list)),
@@ -602,11 +685,12 @@ class BosClient extends BceBaseClient {
      * call initiateMultipartUpload but not call completeMultipartUpload or abortMultipartUpload
      *
      * @param string $bucket_name The bucket name.
-     * @param string $delimiter
      * @param number $max_uploads The default value is 1000.
      * @param string $key_marker
      * @param string $prefix
-     * @param string $upload_id_marker
+     * @param string $delimiter
+     * @param mixed $config The optional bce configuration, which will overwrite the
+     *   default configuration that was passed while creating BosClient instance.
      *
      * @return mixed
      */
@@ -621,14 +705,24 @@ class BosClient extends BceBaseClient {
         if (!is_null($key_marker)) { $params['keyMarker'] = $key_marker; }
         if (!is_null($prefix)) { $params['prefix'] = $prefix; }
 
-        return $this->_sendRequest(HttpMethod::GET, array(
+        return $this->sendRequest(HttpMethod::GET, array(
             'bucket_name' => $bucket_name,
             'params' => $params,
             'config' => $config,
         ));
     }
 
-
+    /**
+     * Signature callback
+     *
+     * @param mixed credentials The credentials.
+     * @param string $http_method The http request method.
+     * @param string $path The http request path.
+     * @param mixed $params The http request query strings.
+     * @param mixed $headers The http request headers.
+     *
+     * @return string
+     */
     public function createSignature($credentials, $http_method, $path, $params, $headers) {
         // IGNORE $credentials
         return $this->auth->generateAuthorization($http_method, $path, $params, $headers);
@@ -636,7 +730,11 @@ class BosClient extends BceBaseClient {
 
     // --- E N D ---
 
-    private function _prepareObjectHeaders($headers = null) {
+    /**
+     * @param mixed $headers The headers need to be filter.
+     * @return mixed The filtered headers.
+     */
+    private function prepareObjectHeaders($headers = null) {
         if (is_null($headers)) {
             return array(array(), false);
         }
@@ -692,7 +790,14 @@ class BosClient extends BceBaseClient {
         return array($object_headers, $meta_size > 0);
     }
 
-    private function _sendRequest($http_method, $var_args) {
+    /**
+     * Create HttpClient and send request
+     * @param string $http_method The http request method
+     * @param mixed $var_args The extra arguments.
+     *
+     * @return mixed The http response and headers.
+     */
+    private function sendRequest($http_method, $var_args) {
         $default_args = array(
             'bucket_name' => null,
             'key' => null,
@@ -705,21 +810,28 @@ class BosClient extends BceBaseClient {
 
         $args = array_merge($default_args, $var_args);
         $config = array_merge(array(), $this->config, $args['config']);
-        $path = $this->_getPath($config, $args['bucket_name'], $args['key']);
+        $path = $this->getPath($config, $args['bucket_name'], $args['key']);
 
         $http_client = new HttpClient($config);
         return $http_client->sendRequest(
-            $http_method,                           /* http_method */
-            $path,                                  /* path */
-            $args['body'],                          /* body */
-            $args['headers'],                       /* headers */
-            $args['params'],                        /* params */
-            array($this, 'createSignature'),        /* sign_function */
-            $args['output_stream']                  /* output_stream */
+            $http_method,                           //* http_method */
+            $path,                                  //* path */
+            $args['body'],                          //* body */
+            $args['headers'],                       //* headers */
+            $args['params'],                        //* params */
+            array($this, 'createSignature'),        //* sign_function */
+            $args['output_stream']                  //* output_stream */
         );
     }
 
-    private function _getPath($config, $bucket_name = null, $key = null) {
+    /**
+     * @param mixed $config The http client config.
+     * @param string $bucket_name The bucket name.
+     * @param string $key The object path.
+     *
+     * @return string
+     */
+    private function getPath($config, $bucket_name = null, $key = null) {
         return Coder::appendUri(Bce::URL_PREFIX, $bucket_name, $key);
     }
 }

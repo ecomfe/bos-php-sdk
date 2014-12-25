@@ -29,6 +29,9 @@ class BceCredentials {
      */
     public $secret_access_key;
 
+    /**
+     * @param array $credentials The ak and sk container.
+     */
     public function __construct($credentials) {
         $this->access_key_id = $credentials['ak'];
         $this->secret_access_key = $credentials['sk'];
