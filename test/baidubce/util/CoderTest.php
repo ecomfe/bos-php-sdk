@@ -45,6 +45,18 @@ class CoderTest extends PHPUnit_Framework_TestCase {
         $this->assertEquals('application/octet-stream', Coder::GuessMimeType(''));
         $this->assertEquals('application/vnd.ms-excel.addin.macroenabled.12', Coder::GuessMimeType('a.xlam'));
     }
+
+    public function testAppendUri() {
+        $this->assertEquals('a/b/c', Coder::appendUri('a', 'b', 'c'));
+        $this->assertEquals('a/b/c/', Coder::appendUri('a', '/b/', '/c/'));
+        $this->assertEquals('a/b/c/', Coder::appendUri('a/', '/b/', '/c/'));
+        $this->assertEquals('a/b/foo/bar/c/', Coder::appendUri('a/', '/b/foo//bar//', '/c/'));
+        $this->assertEquals('a/c/', Coder::appendUri('a/', '', '/c/'));
+        $this->assertEquals('a/c/', Coder::appendUri('a/', null, '/c/'));
+        $this->assertEquals('a/', Coder::appendUri('a/', null, null));
+        $this->assertEquals('/v1', Coder::appendUri('/v1', null, null));
+        $this->assertEquals('/v1', Coder::appendUri('/v1', ''));
+    }
 }
 
 

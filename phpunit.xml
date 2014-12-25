@@ -4,7 +4,6 @@
   <testsuites>
     <testsuite name="baidubce/http">
       <file>test/baidubce/http/HttpClientTest.php</file>
-      <file>test/baidubce/services/bos/BosHttpClientTest.php</file>
       <file>test/baidubce/services/bos/BosClientTest.php</file>
     </testsuite>
     <testsuite name="baidubce/auth">

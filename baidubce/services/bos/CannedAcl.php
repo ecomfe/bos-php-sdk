@@ -12,18 +12,14 @@
 * specific language governing permissions and limitations under the License.
 */
 
-define('__BOS_CLIENT_ROOT', dirname(__DIR__));
+namespace baidubce\services\bos;
 
-// Only scalar and null values are allowed
-define('__BOS_TEST_CONFIG', json_encode(array(
-    'credentials' => array(
-        'ak' => 'bb37e6dfffc948a59eb5ddd254263809',
-        'sk' => '4377d181d7e94cab9ca289e670b9dae4',
-    ),
-    'connection_timeout_in_mills' => 5000,    // 5 seconds
-    'endpoint' => 'http://10.26.208.32:8828',
-    // 'endpoint' => 'http://localhost:8828',
-)));
+class CannedAcl {
+    const PRIVATE_ACL = 'private';
+    const PUBLIC_READ_ACL = 'public-read';
+    const PUBLIC_READ_WRITE_ACL = 'public-read-write';
+}
+
 
 
 /* vim: set ts=4 sw=4 sts=4 tw=120: */

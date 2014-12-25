@@ -14,30 +14,22 @@
 
 namespace baidubce\auth;
 
-require_once dirname(__DIR__) . "/util/Time.php";
-require_once dirname(__DIR__) . "/util/Coder.php";
-require_once dirname(__DIR__) . "/exception/BceIllegalArgumentException.php";
+require_once dirname(dirname(__DIR__)) . "/baidubce/auth/BceCredentials.php";
+require_once dirname(dirname(__DIR__)) . "/baidubce/util/Time.php";
+require_once dirname(dirname(__DIR__)) . "/baidubce/util/Coder.php";
 
-use baidubce\exception\BceIllegalArgumentException;
 use baidubce\util\Coder;
 use baidubce\util\Time;
 
-
 class Auth {
-    private $access_key;
-    private $access_key_secret;
-
-    const VERSION = "1";
+    private $credentials;
 
     /**
      * The Auth constructor
-     *
-     * @param string $access_key The BCE Access Key
-     * @param string $access_key_secret The BCE Access Key Secret.
+     * @param BceCredentials $credentials The bce credentials
      */
-    function __construct($access_key, $access_key_secret) {
-        $this->access_key = $access_key;
-        $this->access_key_secret = $access_key_secret;
+    function __construct($credentials) {
+        $this->credentials = $credentials;
     }
 
     /**
@@ -58,15 +50,14 @@ class Auth {
         $params = array(), $headers = array(),
         $timestamp = 0, $expiration_in_seconds = 1800, $headers_to_sign = null) {
 
-        $raw_session_key = sprintf("bce-auth-v%s/%s/%s/%d",
-            Auth::VERSION,
-            $this->access_key,
+        $raw_session_key = sprintf("bce-auth-v1/%s/%s/%d",
+            $this->credentials->access_key_id,
             Time::bceTimeNow($timestamp),
             $expiration_in_seconds
         );
-        $session_key = hash_hmac("sha256", $raw_session_key, $this->access_key_secret, false);
+        $session_key = hash_hmac("sha256", $raw_session_key, $this->credentials->secret_access_key, false);
 
-        $canonical_uri = "/v1" . Coder::urlEncodeExceptSlash($resource);
+        $canonical_uri = Coder::urlEncodeExceptSlash($resource);
         $canonical_query_string = $this->queryStringCanonicalization($params);
         list($canonical_headers, $signed_headers) = $this->headersCanonicalization($headers, $headers_to_sign);
 

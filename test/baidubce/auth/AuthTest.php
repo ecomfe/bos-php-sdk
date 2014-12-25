@@ -13,12 +13,14 @@
 */
 
 require_once __BOS_CLIENT_ROOT . "/baidubce/auth/Auth.php";
+require_once __BOS_CLIENT_ROOT . "/baidubce/auth/BceCredentials.php";
 
 use baidubce\auth\Auth;
+use baidubce\auth\BceCredentials;
 
 class AuthTest extends PHPUnit_Framework_TestCase {
     public function testQueryStringCanonicalization() {
-        $auth = new Auth('ak','sk');
+        $auth = new Auth(new BceCredentials(array('ak' => 'ak', 'sk' => 'sk')));
 
         $params = array(
             'A' => 'A',
@@ -29,7 +31,7 @@ class AuthTest extends PHPUnit_Framework_TestCase {
     }
 
     public function testHeadersCanonicalization() {
-        $auth = new Auth('ak', 'sk');
+        $auth = new Auth(new BceCredentials(array('ak' => 'ak', 'sk' => 'sk')));
 
         $headers = array(
             'Host' =>'localhost',
@@ -47,10 +49,10 @@ class AuthTest extends PHPUnit_Framework_TestCase {
     }
 
     public function testGenerateAuthorization() {
-        $auth = new Auth('my_ak', 'my_sk');
+        $auth = new Auth(new BceCredentials(array('ak' => 'my_ak', 'sk' => 'my_sk')));
 
         $method = 'PUT';
-        $uri = '/bucket/object1';
+        $uri = '/v1/bucket/object1';
         $params = array(
             'A' => null,
             'b' => '',
@@ -78,7 +80,7 @@ class AuthTest extends PHPUnit_Framework_TestCase {
         );
 
         $method = 'DELETE';
-        $uri = '/test-bucket1361199862';
+        $uri = '/v1/test-bucket1361199862';
         $params = array();
         $headers = array(
             'Content-Type' => 'application/json; charset=utf-8',

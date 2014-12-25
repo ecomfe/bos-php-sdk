@@ -14,14 +14,29 @@
 
 namespace baidubce\http;
 
-require_once dirname(__DIR__) . "/exception/BceRuntimeException.php";
+require_once dirname(dirname(__DIR__)) . "/baidubce/Bce.php";
+require_once dirname(dirname(__DIR__)) . "/baidubce/Exception.php";
+require_once dirname(dirname(__DIR__)) . "/baidubce/util/Time.php";
+require_once dirname(dirname(__DIR__)) . "/baidubce/util/Coder.php";
+require_once dirname(dirname(__DIR__)) . "/baidubce/util/BceTools.php";
+require_once dirname(dirname(__DIR__)) . "/baidubce/http/HttpHeaders.php";
+require_once dirname(dirname(__DIR__)) . "/baidubce/http/HttpContentTypes.php";
+require_once dirname(dirname(__DIR__)) . "/baidubce/http/HttpMethod.php";
 
-use baidubce\exception\BceRuntimeException;
+use baidubce\Bce;
+use baidubce\BceServerError;
+use baidubce\BceClientError;
+use baidubce\util\Time;
+use baidubce\util\Coder;
+use baidubce\util\BceTools;
 
 /**
  * Standard http request of BCE.
  */
 class HttpClient {
+    /**
+     * @type array
+     */
     private $config;
 
     /**
@@ -32,55 +47,129 @@ class HttpClient {
         $this->config = $config;
     }
 
+    private function generateRequestHeaders($headers) {
+        $request_headers = array();
+        foreach ($headers as $key => $val) {
+            if ($key !== HttpHeaders::HOST) {
+                array_push($request_headers, sprintf('%s: %s', $key, $val));
+            }
+        }
+
+        return $request_headers;
+    }
+
+    private function guessContentLength($body) {
+        if (is_null($body)) {
+            return 0;
+        } else if (is_string($body)) {
+            return strlen($body);
+        } else if (is_resource($body)) {
+            return fstat($body)['size'];
+        } else if (is_object($body) && method_exists($body, 'getSize')) {
+            return $body->getSize();
+        }
+        throw new \InvalidArgumentException(sprintf("No %s is specified.",
+            HttpHeaders::CONTENT_LENGTH));
+    }
+
+    /**
+     * @param string $path The bucket and object path.
+     * @param array @param The query strings
+     *
+     * @return string The complete request url path with query string.
+     */
+    private function getRequestUrl($path, $params) {
+        $uri = Coder::urlEncodeExceptSlash($path);
+
+        $query_string = implode("&", array_map(
+            function($k, $v) {
+                return $k . "=" . Coder::urlEncode($v);
+            },
+            array_keys($params), $params));
+
+        if (!is_null($query_string) && $query_string != "") {
+            $uri = $uri . "?" . $query_string;
+        }
+
+        $parsed_url = parse_url($this->config['endpoint']);
+
+        $port = '';
+        $protocol = isset($parsed_url['scheme']) ? $parsed_url['scheme'] : 'http';
+        if ($protocol !== 'http' && $protocol !== 'https') {
+            throw new \InvalidArgumentException(sprintf(
+                "Invalid protocol: %s, either HTTP or HTTPS is expected.", $protocol));
+        }
+
+        return sprintf("%s%s", $this->config['endpoint'], $uri);
+    }
+
     /**
      * Send request to BCE.
      *
-     * @param {string} $method The http request method, uppercase.
-     * @param {string} $url The http request url.
-     * @param {string} $request_body The http request body.
+     * @param {string} $http_method The http request method, uppercase.
+     * @param {string} $path The resource path.
+     * @param {string} $body The http request body.
      * @param {mixed} $headers The extra http request headers.
-     * @param {?mixed} $input_stream Read the http request body from this stream.
+     * @param {mixed} $params The extra http url query strings.
      * @param {?mixed} $output_stream Write the http response to this stream.
      *
      * @return mixed status, body, http_headers
      */
-    public function sendRequest($method, $url, $request_body = '', $headers = array(),
-        $input_stream = null, $output_stream = null) {
+    public function sendRequest($http_method, $path, $body = null, $headers = array(),
+                                $params = array(), $sign_function = null, $output_stream = null) {
+
         $curl_handle = \curl_init();
-        curl_setopt($curl_handle, CURLOPT_URL, $url);
+        curl_setopt($curl_handle, CURLOPT_URL, $this->getRequestUrl($path, $params));
         curl_setopt($curl_handle, CURLOPT_NOPROGRESS, true);
         curl_setopt($curl_handle, CURLINFO_HEADER_OUT, true);
 
-        if (isset($this->config['TimeOut'])) {
-            curl_setopt($curl_handle, CURLOPT_TIMEOUT_MS, $this->config['TimeOut']);
+        if (isset($this->config['connection_timeout_in_mills'])) {
+            curl_setopt($curl_handle, CURLOPT_CONNECTTIMEOUT_MS,
+                $this->config['connection_timeout_in_mills']);
         }
 
-        $header_line_list = array();
-        foreach ($headers as $key => $val) {
-            if ($key !== 'Host') {
-                array_push($header_line_list, sprintf('%s: %s', $key, $val));
-            }
+        if (!isset($headers[HttpHeaders::CONTENT_LENGTH])) {
+            $content_length = $this->guessContentLength($body);
+            $headers[HttpHeaders::CONTENT_LENGTH] = $content_length;
         }
-        curl_setopt($curl_handle, CURLOPT_HTTPHEADER, $header_line_list);
-        curl_setopt($curl_handle, CURLOPT_CUSTOMREQUEST, $method);
 
-        if ($method === 'HEAD') {
+        $parsed_url = parse_url($this->config['endpoint']);
+        $default_headers = array(
+            HttpHeaders::USER_AGENT => sprintf("bce-sdk-php/%s/%s/%s", Bce::SDK_VERSION, PHP_OS, phpversion()),
+            HttpHeaders::BCE_DATE => Time::bceTimeNow(),
+            HttpHeaders::BCE_REQUEST_ID => BceTools::genUUid(),
+            HttpHeaders::EXPECT => '',
+            HttpHeaders::TRANSFER_ENCODING => '',
+            HttpHeaders::CONTENT_TYPE => HttpContentTypes::JSON,
+            HttpHeaders::HOST => preg_replace('/(\w+:\/\/)?([^\/]+)\/?/', '$2', $this->config['endpoint']),
+        );
+        $headers = array_merge($default_headers, $headers);
+        if (!is_null($sign_function)) {
+            $headers[HttpHeaders::AUTHORIZATION] = call_user_func($sign_function,
+                $this->config['credentials'], $http_method, $path, $params, $headers);
+        }
+
+        // Handle Http Request Headers
+        $request_headers = $this->generateRequestHeaders($headers);
+        curl_setopt($curl_handle, CURLOPT_HTTPHEADER, $request_headers);
+        curl_setopt($curl_handle, CURLOPT_CUSTOMREQUEST, $http_method);
+
+        if ($http_method === HttpMethod::HEAD) {
             curl_setopt($curl_handle, CURLOPT_NOBODY, true);
         }
 
-        // Handle the request body
-        // 1. If $request_body exists, convert it from string to a stream 
-        // 2. Set the ReadFunction Option to $read_callback which will return the request body.
-        if ($request_body != '' && is_null($input_stream)) {
-            $input_stream = fopen('php://memory','r+');
-            fwrite($input_stream, $request_body);
-            rewind($input_stream);
-        }
+        // Handle Http Request Body
+        // Read everything from stream interface, if $body's type is string, wrapp is as a stream.
+        if (!is_null($body)) {
+            $input_stream = is_string($body) ? fopen('php://memory', 'r+') : $body;
+            if (is_string($body)) {
+                fwrite($input_stream, $body);
+                rewind($input_stream);
+            }
 
-        if (!is_null($input_stream)) {
             curl_setopt($curl_handle, CURLOPT_POST, true);
             $read_callback = function($_1, $_2, $size) use ($input_stream) {
-                if (is_resource($input_stream)) { 
+                if (is_resource($input_stream)) {
                     return fread($input_stream, $size);
                 }
                 else if (method_exists($input_stream, 'read')) {
@@ -93,7 +182,16 @@ class HttpClient {
             curl_setopt($curl_handle, CURLOPT_READFUNCTION, $read_callback);
         }
 
-        // Handle Http Response
+        // Handle Http Response Headers
+        $http_response_headers = array();
+        $read_response_headers_callback = function($_1, $str) use (&$http_response_headers) {
+            array_push($http_response_headers, $str);
+            return strlen($str);
+        };
+        curl_setopt($curl_handle, CURLOPT_HEADERFUNCTION, $read_response_headers_callback);
+        curl_setopt($curl_handle, CURLOPT_HEADER, false);
+
+        // Handle Http Response Body
         if (!is_null($output_stream)) {
             $write_callback = function($_1, $str) use ($output_stream) {
                 if (is_resource($output_stream)) {
@@ -112,17 +210,8 @@ class HttpClient {
             curl_setopt($curl_handle, CURLOPT_RETURNTRANSFER, true);
         }
 
-        // Handle Http Response Headers
-        $http_response_headers = array();
-        $read_response_headers_callback = function($_1, $str) use (&$http_response_headers) {
-            array_push($http_response_headers, $str);
-            return strlen($str);
-        };
-        curl_setopt($curl_handle, CURLOPT_HEADERFUNCTION, $read_response_headers_callback);
-        curl_setopt($curl_handle, CURLOPT_HEADER, false);
-
         // Send request
-        $response = curl_exec($curl_handle);
+        $http_response = curl_exec($curl_handle);
         $error = curl_error($curl_handle);
         $errno = curl_errno($curl_handle);
         $status = curl_getinfo($curl_handle, CURLINFO_HTTP_CODE);
@@ -130,29 +219,51 @@ class HttpClient {
         // print_r(curl_getinfo($curl_handle, CURLINFO_HEADER_OUT));
         curl_close($curl_handle);
 
-        if ($error != "") {
-            throw new BceRuntimeException(sprintf("errno = %d, error = %s", $errno, $error));
+        $response_headers = $this->parseResponseHeaders($http_response_headers);
+        $response_body = $this->parseHttpResponseBody($http_response, $content_type);
+        $request_id = isset($response_headers[HttpHeaders::BCE_REQUEST_ID])
+                      ? $response_headers[HttpHeaders::BCE_REQUEST_ID]
+                      : null;
+
+        // Error Check
+        if ($error !== '') {
+            // printf("Url = %s\n", $this->getRequestUrl($path, $params));
+            throw new BceServerError($error, $status, $errno, $request_id);
         }
 
-        $http_headers = $this->parseHttpHeaders($http_response_headers);
-        if ($response === '' || $response === true) {
-            // $response === true means the response body was handled by $output_stream.
-            // $response === '' means there is no response body.
-            $body = array();
-        } else if (!is_null($content_type) && strpos($content_type, 'application/json') === 0) {
-            $body = json_decode($response, true);
-            if (is_null($body)) {
-                throw new BceRuntimeException(sprintf("MalformedJSON (%s)", $response));
+        if ($status >= 100 && $status < 200) {
+            throw new BceClientError('Can not handle 1xx http status code');
+        }
+        else if ($status < 200 || $status >= 300) {
+            if (isset($response_body['message'])) {
+                throw new BceServerError($response_body['message'], $status,
+                    $response_body['code'], $response_body['requestId']);
             }
-        } else {
-            $body = $response;
+            throw new BceServerError($http_response, $status);
         }
 
+        // $status >= 200 && $status < 300 means HTTP OK
         return array(
-            'status' => $status,
-            'http_headers' => $http_headers,
-            'body' => $body,
+            'http_headers' => $response_headers,
+            'body' => $response_body,
         );
+    }
+
+    private function parseHttpResponseBody($http_response, $content_type) {
+        if ($http_response === '' || $http_response === true) {
+            // $http_response === true means the response body was handled by $output_stream.
+            // $http_response === '' means there is no response body.
+            return array();
+        } else if (!is_null($content_type) && (strpos($content_type, 'application/json') === 0
+                                               || strpos($content_type, 'text/json') === 0)) {
+            $data = json_decode($http_response, true);
+            if (is_null($data)) {
+                throw new BceClientError(sprintf("MalformedJSON (%s)", $http_response));
+            }
+            return $data;
+        }
+
+        return $http_response;
     }
 
     /**
@@ -161,13 +272,14 @@ class HttpClient {
      * @return array The normalized http response headers, empty value header
      *   was omited.
      */
-    private function parseHttpHeaders($raw_headers) {
+    private function parseResponseHeaders($raw_headers) {
         $headers = array();
         foreach ($raw_headers as $i => $h) {
             if ($i > 0) {
                 $h = explode(':', $h, 2);
                 if (isset($h[1])) {
-                    if ($h[0] === 'ETag') {
+                    $h[0] = strtolower($h[0]);
+                    if ($h[0] === strtolower(HttpHeaders::ETAG)) {
                         $h[1] = str_replace("\"", "", $h[1]);
                     }
                     $headers[$h[0]] = trim($h[1]);

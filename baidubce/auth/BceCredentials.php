@@ -12,18 +12,30 @@
 * specific language governing permissions and limitations under the License.
 */
 
-define('__BOS_CLIENT_ROOT', dirname(__DIR__));
+namespace baidubce\auth;
 
-// Only scalar and null values are allowed
-define('__BOS_TEST_CONFIG', json_encode(array(
-    'credentials' => array(
-        'ak' => 'bb37e6dfffc948a59eb5ddd254263809',
-        'sk' => '4377d181d7e94cab9ca289e670b9dae4',
-    ),
-    'connection_timeout_in_mills' => 5000,    // 5 seconds
-    'endpoint' => 'http://10.26.208.32:8828',
-    // 'endpoint' => 'http://localhost:8828',
-)));
+/**
+ * Provides access to the BCE credentials used for accessing BCE services:
+ * BCE access key ID and secret access key.
+ */
+class BceCredentials {
+    /**
+     * @type string
+     */
+    public $access_key_id;
+
+    /**
+     * @type string
+     */
+    public $secret_access_key;
+
+    public function __construct($credentials) {
+        $this->access_key_id = $credentials['ak'];
+        $this->secret_access_key = $credentials['sk'];
+    }
+}
+
+
 
 
 /* vim: set ts=4 sw=4 sts=4 tw=120: */

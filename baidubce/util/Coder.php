@@ -69,4 +69,18 @@ class Coder {
 
         return isset($map[$ext]) ? $map[$ext] : 'application/octet-stream';
     }
+
+    /**
+     * @return string
+     */
+    static function appendUri() {
+        $paths = array();
+        foreach (func_get_args() as $arg) {
+            if (!empty($arg)) {
+                $paths[] = $arg;
+            }
+        }
+
+        return preg_replace('#/+#', '/', join('/', $paths));
+    }
 } 

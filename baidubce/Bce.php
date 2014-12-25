@@ -12,18 +12,27 @@
 * specific language governing permissions and limitations under the License.
 */
 
-define('__BOS_CLIENT_ROOT', dirname(__DIR__));
+namespace baidubce;
 
-// Only scalar and null values are allowed
-define('__BOS_TEST_CONFIG', json_encode(array(
-    'credentials' => array(
-        'ak' => 'bb37e6dfffc948a59eb5ddd254263809',
-        'sk' => '4377d181d7e94cab9ca289e670b9dae4',
-    ),
-    'connection_timeout_in_mills' => 5000,    // 5 seconds
-    'endpoint' => 'http://10.26.208.32:8828',
-    // 'endpoint' => 'http://localhost:8828',
-)));
+class Bce {
+    const SDK_VERSION = '0.8.0';
+    const DEFAULT_SERVICE_DOMAIN = 'baidubce.com';
+    const URL_PREFIX = '/v1';
+    const DEFAULT_ENCODING = 'UTF-8';
+
+    public static function getDefaultConfig() {
+        return array(
+            'credentials' => null,
+            'endpoint' => null,
+            'protocol' => 'http',
+            'region' => 'bj',
+            'connection_timeout_in_mills' => 50 * 1000,
+            'send_buf_size' => 1024 * 1024,
+            'recv_buf_size' => 10 * 1024 * 1024,
+        );
+    }
+}
+
 
 
 /* vim: set ts=4 sw=4 sts=4 tw=120: */

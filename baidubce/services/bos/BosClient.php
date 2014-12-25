@@ -11,31 +11,42 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
+
 namespace baidubce\services\bos;
 
-require_once __DIR__ . "/BosClient.php";
-require_once __DIR__ . "/BosHttpClient.php";
+require_once dirname(dirname(dirname(__DIR__))) . '/baidubce/Bce.php';
+require_once dirname(dirname(dirname(__DIR__))) . '/baidubce/Exception.php';
+require_once dirname(dirname(dirname(__DIR__))) . '/baidubce/BceBaseClient.php';
+require_once dirname(dirname(dirname(__DIR__))) . '/baidubce/auth/Auth.php';
+require_once dirname(dirname(dirname(__DIR__))) . '/baidubce/auth/BceCredentials.php';
+require_once dirname(dirname(dirname(__DIR__))) . '/baidubce/http/HttpClient.php';
+require_once dirname(dirname(dirname(__DIR__))) . '/baidubce/http/HttpHeaders.php';
+require_once dirname(dirname(dirname(__DIR__))) . '/baidubce/http/HttpContentTypes.php';
+require_once dirname(dirname(dirname(__DIR__))) . '/baidubce/http/HttpMethod.php';
+require_once dirname(dirname(dirname(__DIR__))) . '/baidubce/util/Coder.php';
 
-require_once dirname(dirname(__DIR__)) . "/util/Coder.php";
-
+use baidubce\Bce;
+use baidubce\BceServerError;
+use baidubce\BceBaseClient;
+use baidubce\auth\Auth;
+use baidubce\auth\BceCredentials;
+use baidubce\http\HttpClient;
+use baidubce\http\HttpHeaders;
+use baidubce\http\HttpContentTypes;
+use baidubce\http\HttpMethod;
 use baidubce\util\Coder;
-use baidubce\services\bos\BosHttpClient;
-use baidubce\exception\BceIllegalArgumentException;
 
-class BosClient {
-    const MIN_PART_SIZE = 5242880;      // 5M
-    const MAX_PART_SIZE = 5368709120;   // 5G
-    const MAX_PARTS     = 10000;
-
-    /**
-     * @type BosHttpClient
-     */
-    private $http_client;
+class BosClient extends BceBaseClient {
+    const MIN_PART_SIZE = 5242880;                // 5M
+    const MAX_PUT_OBJECT_LENGTH = 5368709120;     // 5G
+    const MAX_USER_METADATA_SIZE = 2048;          // 2 * 1024
+    const MIN_PART_NUMBER = 1;
+    const MAX_PART_NUMBER = 10000;
 
     /**
-     * @type mixed
+     * @type baidubce\auth\Auth
      */
-    private $config;
+    private $auth;
 
     /**
      * The BosClient constructor
@@ -43,8 +54,8 @@ class BosClient {
      * @param array $config The client configuration
      */
     function __construct(array $config) {
-        $this->config = $config;
-        $this->http_client = new BosHttpClient($config);
+        parent::__construct($config, 'bos');
+        $this->auth = new Auth(new BceCredentials($config['credentials']));
     }
 
     // --- B E G I N ---
@@ -60,14 +71,27 @@ class BosClient {
      *
      * @return string
      */
-    public function generatePresignedUrl($bucket_name, $object_name,
-        $timestamp = 0, $expiration_in_seconds = 1800, $options = array()) {
-        list($headers, $params) = $this->checkOptions($options);
-        $headers['Host'] = $this->config['Host'];
-        $method = 'GET';
-        $resource = sprintf("/%s/%s", $bucket_name, $object_name);
-        return $this->http_client->generatePresignedUrl($method, $resource, $params, $headers,
-            $timestamp, $expiration_in_seconds);
+    public function generatePresignedUrl($bucket_name, $key,
+                                         $timestamp = 0,
+                                         $expiration_in_seconds = 1800,
+                                         $headers = array(),
+                                         $params = array(),
+                                         $headers_to_sign = array(),
+                                         $config = array()) {
+
+        $config = array_merge(array(), $this->config, $config);
+
+        $path = $this->_getPath($config, $bucket_name, $key);
+
+        $headers[HttpHeaders::HOST] = preg_replace('/(\w+:\/\/)?([^\/]+)\/?/', '$2',
+            $config['endpoint']);
+
+        $authorization = $this->auth->generateAuthorization(
+            HttpMethod::GET, $path, $params, $headers, $timestamp, $expiration_in_seconds,
+            $headers_to_sign);
+
+        return sprintf("%s%s?authorization=%s", $config['endpoint'],
+            $path, Coder::urlEncode($authorization));
     }
 
     /**
@@ -75,8 +99,10 @@ class BosClient {
      *
      * @return mixed All of the available buckets.
      */
-    public function listBuckets() {
-        return $this->http_client->sendRequest('GET');
+    public function listBuckets($config = array()) {
+        return $this->_sendRequest(HttpMethod::GET, array(
+            'config' => $config,
+        ));
     }
 
     /**
@@ -86,8 +112,11 @@ class BosClient {
      *
      * @return mixed
      */
-    public function createBucket($bucket_name) {
-        return $this->http_client->sendRequest('PUT', $bucket_name);
+    public function createBucket($bucket_name, $config = array()) {
+        return $this->_sendRequest(HttpMethod::PUT, array(
+            'bucket_name' => $bucket_name,
+            'config' => $config,
+        ));
     }
 
     /**
@@ -101,18 +130,20 @@ class BosClient {
      *
      * @return mixed
      */
-    public function listObjects($bucket_name, $delimiter = null, $marker = null, $max_keys = 1000, $prefix = null) {
-        $headers = array();
-        $params = array(
-            'maxKeys' => $max_keys,
-        );
-
-        if (!is_null($delimiter)) { $params['delimiter'] = $delimiter; }
-        if (!is_null($marker)) { $params['marker'] = $marker; }
+    public function listObjects($bucket_name, $max_keys = 1000,
+                                $prefix = null, $marker = null,
+                                $delimiter = null, $config = array()) {
+        $params = array();
+        if (!is_null($max_keys)) { $params['maxKeys'] = $max_keys; }
         if (!is_null($prefix)) { $params['prefix'] = $prefix; }
+        if (!is_null($marker)) { $params['marker'] = $marker; }
+        if (!is_null($delimiter)) { $params['delimiter'] = $delimiter; }
 
-        return $this->http_client->sendRequest('GET',
-            $bucket_name, '', $headers, '', $params);
+        return $this->_sendRequest(HttpMethod::GET, array(
+            'bucket_name' => $bucket_name,
+            'params' => $params,
+            'config' => $config,
+        ));
     }
 
     /**
@@ -122,10 +153,23 @@ class BosClient {
      *
      * @return boolean true means the bucket does exists.
      */
-    public function doesBucketExist($bucket_name) {
-        $response = $this->http_client->sendRequest('HEAD', $bucket_name);
-
-        return in_array($response['status'], array(200, 204, 403), true);
+    public function doesBucketExist($bucket_name, $config = array()) {
+        try {
+            $this->_sendRequest(HttpMethod::HEAD, array(
+                'bucket_name' => $bucket_name,
+                'config' => $config,
+            ));
+            return true;
+        }
+        catch(BceServerError $e) {
+            if ($e->status_code === 403) {
+                return true;
+            }
+            if ($e->status_code === 404) {
+                return false;
+            }
+            throw $e;
+        }
     }
 
     /**
@@ -134,8 +178,11 @@ class BosClient {
      * @param string $bucket_name The bucket name.
      * @return mixed
      */
-    public function deleteBucket($bucket_name) {
-        return $this->http_client->sendRequest('DELETE', $bucket_name);
+    public function deleteBucket($bucket_name, $config = array()) {
+        return $this->_sendRequest(HttpMethod::DELETE, array(
+            'bucket_name' => $bucket_name,
+            'config' => $config
+        ));
     }
 
     /**
@@ -145,12 +192,15 @@ class BosClient {
      * @param string $acl The grant list.
      * @return mixed
      */
-    public function setBucketCannedAcl($bucket_name, $acl) {
-        $headers = array('x-bce-acl' => $acl);
-        $params = array('acl' => null);
-
-        return $this->http_client->sendRequest('PUT',
-            $bucket_name, '', $headers, '', $params);
+    public function setBucketCannedAcl($bucket_name, $canned_acl, $config = array()) {
+        return $this->_sendRequest(HttpMethod::PUT, array(
+            'bucket_name' => $bucket_name,
+            'headers' => array(
+                HttpHeaders::BCE_ACL => $canned_acl,
+            ),
+            'params' => array('acl' => ''),
+            'config' => $config,
+        ));
     }
 
     /**
@@ -160,12 +210,16 @@ class BosClient {
      * @param mixed $acl The grant list.
      * @return mixed
      */
-    public function setBucketAcl($bucket_name, $acl) {
-        $headers = array();
-        $body = json_encode(array('accessControlList' => $acl));
-        $params = array('acl' => null);
-        return $this->http_client->sendRequest('PUT',
-            $bucket_name, '', $headers, $body, $params);
+    public function setBucketAcl($bucket_name, $acl, $config = array()) {
+        return $this->_sendRequest(HttpMethod::PUT, array(
+            'bucket_name' => $bucket_name,
+            'body' => json_encode(array('accessControlList' => $acl)),
+            'headers' => array(
+                HttpHeaders::CONTENT_TYPE => HttpContentTypes::JSON,
+            ),
+            'params' => array('acl' => ''),
+            'config' => $config,
+        ));
     }
 
     /**
@@ -174,23 +228,12 @@ class BosClient {
      * @param string $bucket_name The bucket name.
      * @return mixed
      */
-    public function getBucketAcl($bucket_name) {
-        $headers = array();
-        $params = array('acl' => null);
-
-        $response = $this->http_client->sendRequest('GET',
-            $bucket_name, '', $headers, '', $params);
-
-        $MAX_SUPPORTED_ACL_VERSION = 1;
-        if (!isset($response['body']['version'])) {
-            $response['body']['version'] = $MAX_SUPPORTED_ACL_VERSION;
-        }
-
-        if ($response['body']['version'] > $MAX_SUPPORTED_ACL_VERSION) {
-            throw new Exception('Unsupported acl version.');
-        }
-
-        return $response;
+    public function getBucketAcl($bucket_name, $config = array()) {
+        return $this->_sendRequest(HttpMethod::GET, array(
+            'bucket_name' => $bucket_name,
+            'params' => array('acl' => ''),
+            'config' => $config,
+        ));
     }
 
     /**
@@ -203,30 +246,14 @@ class BosClient {
      *
      * @return mixed
      */
-    public function putObjectFromString($bucket_name, $object_name, $input_content, $options = array()) {
-        list($headers, $params) = $this->checkOptions($options);
+    public function putObjectFromString($bucket_name, $key, $data,
+                                        $headers = array(), $config = array()) {
+        $object_headers = array_merge(array(
+            HttpHeaders::CONTENT_LENGTH => strlen($data),
+            HttpHeaders::CONTENT_MD5 => base64_encode(md5($data, true)),
+        ), $headers);
 
-        if (empty($object_name)) {
-            throw new BceIllegalArgumentException("Object name is empty.");
-        }
-
-        $content_length = strlen($input_content);
-        if ($content_length > BosClient::MAX_PART_SIZE) {
-            throw new BceIllegalArgumentException("File size is too large.");
-        }
-
-        if (!isset($headers['Content-MD5'])) {
-            $headers['Content-MD5'] = base64_encode(md5($input_content, true));
-            // $headers['x-bce-meta-md5'] = md5($input_content);
-        }
-
-        if (!isset($headers['Content-Type'])) {
-            // Return the default content-type
-            $headers['Content-Type'] = Coder::guessMimeType('');
-        }
-
-        return $this->http_client->sendRequest('PUT',
-            $bucket_name, $object_name, $headers, $input_content, $params);
+        return $this->putObject($bucket_name, $key, $data, $object_headers, $config);
     }
 
     /**
@@ -239,21 +266,18 @@ class BosClient {
      *
      * @return mixed
      */
-    public function putObjectFromFile($bucket_name, $object_name, $file_name, $options = array()) {
-        list($headers, $params) = $this->checkOptions($options);
+    public function putObjectFromFile($bucket_name, $key, $filename,
+                                      $headers = array(), $config = array()) {
 
-        if (!isset($headers['Content-Type'])) {
-            $headers['Content-Type'] = Coder::guessMimeType($file_name);
-        }
+        $object_headers = array_merge(array(
+            HttpHeaders::CONTENT_LENGTH => filesize($filename),
+            HttpHeaders::CONTENT_TYPE => Coder::guessMimeType($filename),
+            HttpHeaders::CONTENT_MD5 => base64_encode(md5_file($filename, true)),
+        ), $headers);
 
-        $fp = fopen($file_name, 'rb');
-        $file_size = filesize($file_name);
-        $offset = 0;
-        $length = $file_size;
-
+        $fp = fopen($filename, 'rb');
         try {
-            $response = $this->putObjectFromHandle($bucket_name, $object_name, $fp, $file_size,
-                $offset, $length, $headers, $params);
+            $response = $this->putObject($bucket_name, $key, $fp, $object_headers, $config);
             fclose($fp);
             return $response;
         }
@@ -263,108 +287,27 @@ class BosClient {
         }
     }
 
-    /**
-     * Put object and put content of file to the object
-     *
-     * @param string $bucket_name The bucket name.
-     * @param string $object_name The object path.
-     * @param resource $fp The opened file handle.
-     * @param number $file_size The file size.
-     * @param number $offset The default value is 0.
-     * @param number $length The default value is 0.
-     * @param mixed $headers The http request headers.
-     * @param mixed $params The http request query strings.
-     *
-     * @return mixed
-     */
-    public function putObjectFromHandle($bucket_name, $object_name, $fp, $file_size,
-        $offset = 0, $length = 0, $headers = array(), $params = array()) {
+    public function getObject($bucket_name, $key, $range = null, $config = array()) {
+        $output_stream = fopen('php://memory', 'r+');
+        $response = $this->_sendRequest(HttpMethod::GET, array(
+            'bucket_name' => $bucket_name,
+            'key' => $key,
+            'headers' =>  array(
+                HttpHeaders::RANGE => is_null($range) ? '' : sprintf("bytes=%s", $range),
+            ),
+            'config' => $config,
+            // 避免 HttpClient 解析 ResponseBody 的内容
+            'output_stream' => $output_stream,
+        ));
+        rewind($output_stream);
+        $response['body'] = stream_get_contents($output_stream);
 
-        if (empty($object_name)) {
-            throw new BceIllegalArgumentException("Object name is empty.");
-        }
-
-        if ($length <= 0) {
-            $length = $file_size;
-        }
-
-        if ($length > BosClient::MAX_PART_SIZE) {
-            throw new BceIllegalArgumentException("File size is too large.");
-        }
-
-        if (!isset($headers['Content-MD5'])) {
-            $md5 = Coder::md5FromStream($fp, $offset, $length, true);
-            $headers['Content-MD5'] = base64_encode($md5);
-        }
-
-        if (!isset($headers['Content-Length'])) {
-            $headers['Content-Length'] = $length;
-        }
-
-        return $this->putObjectFromHandleInternal($bucket_name, $object_name, $fp, $file_size,
-            $offset, $length, $headers, $params);
-    }
-
-    /**
-     * @param string $bucket_name The bucket name.
-     * @param string $object_name The object path.
-     * @param resource $fp The file handle.
-     * @param number $file_size The file size.
-     * @param number $offset The file offset.
-     * @param number $length The part size.
-     * @param array $headers The extra http request headers.
-     * @param array $params The query strings.
-     *
-     * @return mixed
-     */
-    private function putObjectFromHandleInternal($bucket_name, $object_name, $fp, $file_size,
-        $offset, $length, $headers, $params) {
-
-        if ($offset + $length > $file_size) {
-            throw new BceIllegalArgumentException(
-                sprintf("Invalid offset error. offset = [%d], length = [%d], file_size = [%d]",
-                    $offset, $length, $file_size));
-        }
-
-        $body = '';
-        $input_stream = fopen('php://memory', 'r+');
-        stream_copy_to_stream($fp, $input_stream, $length, $offset);
-        rewind($input_stream);
-        $response = $this->http_client->sendRequest('PUT',
-            $bucket_name, $object_name, $headers, $body, $params, $input_stream);
-        fclose($input_stream);
         return $response;
     }
 
-    /**
-     * @param array $options The mixed headers and params.
-     *
-     * @return array The headers and params.
-     */
-    private function checkOptions($options) {
-        $headers = array();
-        $params = array();
-
-        $headers_options = array(
-            'Content-MD5',
-            'Content-Length',
-            'Content-Type',
-            'x-bce-copy-source-if-match',
-            'x-bce-date',
-            'x-bce-metadata-directive',
-        );
-        $params_options = array();
-        foreach ($options as $key => $value) {
-            if (in_array($key, $headers_options)) {
-                $headers[$key] = $value;
-            } else if (in_array($key, $params_options)) {
-                $params[$key] = $value;
-            } else if (strpos($key, 'x-bce-meta-') === 0) {
-                $headers[$key] = $value;
-            }
-        }
-
-        return array($headers, $params);
+    public function getObjectAsString($bucket_name, $key, $range = null, $config = array()) {
+        $response = $this->getObject($bucket_name, $key, $range, $config);
+        return $response['body'];
     }
 
     /**
@@ -377,17 +320,25 @@ class BosClient {
      *
      * @return mixed
      */
-    public function getObjectToFile($bucket_name, $object_name, $file_name, $range = null) {
-        $method = 'GET';
-
-        $headers = array();
-        if (!is_null($range)) {
-            $headers['Range'] = sprintf("bytes=%s", $range);
+    public function getObjectToFile($bucket_name, $key, $filename, $range = null, $config = array()) {
+        $output_stream = fopen($filename, 'w+');
+        try {
+            $response = $this->_sendRequest(HttpMethod::GET, array(
+                'bucket_name' => $bucket_name,
+                'key' => $key,
+                'headers' => array(
+                    HttpHeaders::RANGE => is_null($range) ? '' : sprintf("bytes=%s", $range),
+                ),
+                'config' => $config,
+                'output_stream' => $output_stream,
+            ));
+            fclose($output_stream);
+            return $response;
         }
-
-        $output_stream = fopen($file_name, 'w+');
-        return $this->http_client->sendRequest('GET',
-            $bucket_name, $object_name, $headers, '', array(), null, $output_stream);
+        catch(BceServerError $ex) {
+            fclose($output_stream);
+            throw $ex;
+        }
     }
 
     /**
@@ -398,8 +349,30 @@ class BosClient {
      *
      * @return mixed
      */
-    public function deleteObject($bucket_name, $object_name) {
-        return $this->http_client->sendRequest('DELETE', $bucket_name, $object_name);
+    public function deleteObject($bucket_name, $key, $config = array()) {
+        return $this->_sendRequest(HttpMethod::DELETE, array(
+            'bucket_name' => $bucket_name,
+            'key' => $key,
+            'config' => $config,
+        ));
+    }
+
+    public function putObject($bucket_name, $key, $data,
+                              $headers = array(), $config = array()) {
+
+        if (empty($key)) {
+            throw new \InvalidArgumentException('key should not be empty.');
+        }
+
+        list($object_headers, $has_user_metadata) = $this->_prepareObjectHeaders($headers);
+
+        return $this->_sendRequest(HttpMethod::PUT, array(
+            'bucket_name' => $bucket_name,
+            'key' => $key,
+            'body' => $data,
+            'headers' => $object_headers,
+            'config' => $config,
+        ));
     }
 
     /**
@@ -410,8 +383,12 @@ class BosClient {
      *
      * @return mixed
      */
-    public function getObjectMetadata($bucket_name, $object_name) {
-        return $this->http_client->sendRequest('HEAD', $bucket_name, $object_name);
+    public function getObjectMetadata($bucket_name, $key, $config = array()) {
+        return $this->_sendRequest(HttpMethod::HEAD, array(
+            'bucket_name' => $bucket_name,
+            'key' => $key,
+            'config' => $config,
+        ));
     }
 
     /**
@@ -425,24 +402,32 @@ class BosClient {
      *
      * @return mixed
      */
-    public function copyObject($source_bucket, $source_key,
-        $target_bucket, $target_key, $options = array()) {
+    public function copyObject($source_bucket_name, $source_key,
+                               $target_bucket_name, $target_key,
+                               $headers = array(), $config = array()) {
 
-        if (empty($source_bucket) || empty($target_bucket)) {
-            throw new BceIllegalArgumentException('Bucket is empty.');
+        if (empty($source_bucket_name)) { throw new \InvalidArgumentException('source_bucket_name should not be empty or None.'); }
+        if (empty($source_key)) { throw new \InvalidArgumentException('source_key should not be empty or None.'); }
+        if (empty($target_bucket_name)) { throw new \InvalidArgumentException('target_bucket_name should not be empty or None.'); }
+        if (empty($target_key)) { throw new \InvalidArgumentException('target_key should not be empty or None.'); }
+
+        list($object_headers, $has_user_metadata) = $this->_prepareObjectHeaders($headers);
+
+        $object_headers[HttpHeaders::BCE_COPY_SOURCE] = Coder::urlEncodeExceptSlash(
+            sprintf("/%s/%s", $source_bucket_name, $source_key));
+        if (isset($object_headers[HttpHeaders::ETAG])) {
+            $object_headers[HttpHeaders::BCE_COPY_SOURCE_IF_MATCH] =
+                $object_headers[HttpHeaders::ETAG];
         }
+        $object_headers[HttpHeaders::BCE_COPY_METADATA_DIRECTIVE] =
+            $has_user_metadata ? 'replace' : 'copy';
 
-        if (empty($source_key) || empty($target_key)) {
-            throw new BceIllegalArgumentException('Key is empty.');
-        }
-
-        list($headers, $params) = $this->checkOptions($options);
-
-        $copy_source = sprintf("/%s/%s", $source_bucket, $source_key);
-        $headers['x-bce-copy-source'] = Coder::urlEncodeExceptSlash($copy_source);
-
-        return $this->http_client->sendRequest('PUT',
-            $target_bucket, $target_key, $headers, '', $params);
+        return $this->_sendRequest(HttpMethod::PUT, array(
+            'bucket_name' => $target_bucket_name,
+            'key' => $target_key,
+            'headers' => $object_headers,
+            'config' => $config,
+        ));
     }
 
     /**
@@ -454,14 +439,18 @@ class BosClient {
      *
      * @return mixed
      */
-    public function initiateMultipartUpload($bucket_name, $object_name, $file_name = '') {
-        $content_type = empty($file_name) ? Coder::guessMimeType($object_name) : Coder::guessMimeType($file_name);
+    public function initiateMultipartUpload($bucket_name, $key, $config = array()) {
+        $content_type = Coder::guessMimeType($key);
         $headers = array(
-            'Content-Type' => $content_type,
+            HttpHeaders::CONTENT_TYPE => $content_type,
         );
-        $params = array('uploads' => '');
-        return $this->http_client->sendRequest('POST',
-            $bucket_name, $object_name, $headers, '', $params);
+        return $this->_sendRequest(HttpMethod::POST, array(
+            'bucket_name' => $bucket_name,
+            'key' => $key,
+            'params' => array('uploads' => ''),
+            'headers' => $headers,
+            'config' => $config,
+        ));
     }
 
     /**
@@ -473,9 +462,12 @@ class BosClient {
      *
      * @return mixed
      */
-    public function abortMultipartUpload($bucket_name, $object_name, $upload_id) {
-        return $this->http_client->sendRequest('DELETE',
-            $bucket_name, $object_name, array(), '', array('uploadId' => $upload_id));
+    public function abortMultipartUpload($bucket_name, $key, $upload_id, $config = array()) {
+        return $this->_sendRequest(HttpMethod::DELETE, array(
+            'bucket_name' => $bucket_name,
+            'key' => $key,
+            'params' => array('uploadId' => $upload_id),
+        ));
     }
 
     /**
@@ -492,40 +484,54 @@ class BosClient {
      *
      * @return mixed
      */
-    public function uploadPart($bucket_name, $object_name, $file_name,
-        $offset, $part_size, $upload_id, $part_number, $options = array()) {
+    public function uploadPart($bucket_name, $key, $upload_id,
+                               $part_number, $part_size, $part_fp, $part_md5 = null,
+                               $config = array()) {
 
-        if ($part_number < 1 || $part_number > BosClient::MAX_PARTS) {
-            throw new BceIllegalArgumentException("Invalid part number.");
+        if (empty($bucket_name)) { throw new \InvalidArgumentException('bucket_name should not be empty or None.'); }
+        if (empty($key)) { throw new \InvalidArgumentException('key should not be empty or None.'); }
+        if ($part_number < BosClient::MIN_PART_NUMBER || $part_number > BosClient::MAX_PART_NUMBER) {
+            throw new \InvalidArgumentException("Invalid part_number %d. The valid range is from %d to %d.",
+                $part_number, BosClient::MIN_PART_NUMBER, BosClient::MAX_PART_NUMBER);
         }
 
-        // Only the last part's size can less than BosClient::MIN_PART_SIZE, but
-        // we don't know the total part count, so we have no way to do this check.
-        if ($part_size >= BosClient::MAX_PART_SIZE) {
-            throw new BceIllegalArgumentException(
-                sprintf("Invalid size, the maximum part size is %d" . BosClient::MAX_PART_SIZE));
+        if (is_null($part_md5)) {
+            $part_md5 = base64_encode(Coder::md5FromStream($part_fp, 0, -1, true));
         }
 
-        list($headers, $params) = $this->checkOptions($options);
-        $params['partnumber'] = $part_number;
-        $params['uploadId'] = $upload_id;
+        $headers = array(
+            HttpHeaders::CONTENT_LENGTH => $part_size,
+            HttpHeaders::CONTENT_TYPE => HttpContentTypes::OCTET_STREAM,
+            HttpHeaders::CONTENT_MD5 => $part_md5,
+        );
 
-        if (!isset($headers['Content-Type'])) {
-            $headers['Content-Type'] = Coder::guessMimeType($file_name);
-        }
+        return $this->_sendRequest(HttpMethod::PUT, array(
+            'bucket_name' => $bucket_name,
+            'key' => $key,
+            'body' => $part_fp,
+            'headers' => $headers,
+            'params' => array('partNumber' => $part_number, 'uploadId' => $upload_id),
+            'config' => $config,
+        ));
+    }
 
-        $file_size = filesize($file_name);
-        $fp = fopen($file_name, 'rb');
+    public function uploadPartFromFile($bucket_name, $key, $upload_id,
+                                       $part_number, $part_size, $filename, $offset,
+                                       $part_md5 = null, $config = array()) {
+        $fp = fopen($filename, 'r');
+        $part_fp = fopen('php://memory', 'r+');
+        stream_copy_to_stream($fp, $part_fp, $part_size, $offset);
+        rewind($part_fp);
+        fclose($fp);
 
         try {
-            $response = $this->putObjectFromHandle($bucket_name, $object_name, $fp, $file_size,
-                $offset, $part_size, $headers, $params);
-            fclose($fp);
-
+            $response = $this->uploadPart($bucket_name, $key, $upload_id,
+                $part_number, $part_size, $part_fp, $part_md5, $config);
+            fclose($part_fp);
             return $response;
         }
-        catch(Exception $ex) {
-            fclose($fp);
+        catch(BceServerError $ex) {
+            fclose($part_fp);
             throw $ex;
         }
     }
@@ -541,19 +547,26 @@ class BosClient {
      *
      * @return mixed
      */
-    public function listParts($bucket_name, $object_name, $upload_id,
-        $max_keys = 1000, $part_number_marker = null) {
+    public function listParts($bucket_name, $key, $upload_id,
+                              $max_parts = null, $part_number_marker = null,
+                              $config = array()) {
+
+        if (empty($upload_id)) {
+            throw new \InvalidArgumentException('upload_id should not be None.');
+        }
 
         $params = array(
             'uploadId' => $upload_id,
-            'maxParts' => $max_keys,
         );
-        if (!is_null($part_number_marker)) {
-            $params['partNumberMarker'] = $part_number_marker;
-        }
+        if (!is_null($max_parts)) { $params['maxParts'] = $max_parts; }
+        if (!is_null($part_number_marker)) { $params['partNumberMarker'] = $part_number_marker; }
 
-        return $this->http_client->sendRequest('GET',
-            $bucket_name, $object_name, array(), '', $params);
+        return $this->_sendRequest(HttpMethod::GET, array(
+            'bucket_name' => $bucket_name,
+            'key' => $key,
+            'params' => $params,
+            'config' => $config,
+        ));
     }
 
     /**
@@ -567,15 +580,21 @@ class BosClient {
      *
      * @return mixed
      */
-    public function completeMultipartUpload($bucket_name, $object_name, $upload_id,
-        $part_list, $options = array()) {
+    public function completeMultipartUpload($bucket_name, $key, $upload_id,
+                                            $part_list, $headers = array(),
+                                            $config = array()) {
 
-        list($headers, $params) = $this->checkOptions($options);
-        $params['uploadId'] = $upload_id;
+        $headers[HttpHeaders::CONTENT_TYPE] = HttpContentTypes::JSON;
+        list($object_headers, $has_user_metadata) = $this->_prepareObjectHeaders($headers);
 
-        $body = json_encode(array('parts' => $part_list));
-        return $this->http_client->sendRequest('POST',
-            $bucket_name, $object_name, $headers, $body, $params);
+        return $this->_sendRequest(HttpMethod::POST, array(
+            'bucket_name' => $bucket_name,
+            'key' => $key,
+            'body' => json_encode(array('parts' => $part_list)),
+            'headers' => $object_headers,
+            'params' => array('uploadId' => $upload_id),
+            'config' => $config,
+        ));
     }
 
     /**
@@ -591,18 +610,116 @@ class BosClient {
      *
      * @return mixed
      */
-    public function listMultipartUploads($bucket_name, $delimiter = '', $max_uploads = 1000,
-        $key_marker = '', $prefix = '', $upload_id_marker = '') {
+    public function listMultipartUploads($bucket_name, $max_uploads = null,
+                                         $key_marker = null, $prefix = null,
+                                         $delimiter = null, $config = array()) {
 
-        $params = array('uploads' => null, 'maxUploads' => $max_uploads);
-        if (!empty($delimiter)) { $params['delimiter'] = $delimiter; }
-        if (!empty($key_marker)) { $params['keyMarker'] = $key_marker; }
-        if (!empty($prefix)) { $params['prefix'] = $prefix; }
-        if (!empty($upload_id_marker)) { $params['uploads'] = $upload_id_marker; }
+        $params = array('uploads' => '');
 
-        return $this->http_client->sendRequest('GET',
-            $bucket_name, '', array(), '', $params);
+        if (!is_null($delimiter)) { $params['delimiter'] = $delimiter; }
+        if (!is_null($max_uploads)) { $params['maxUploads'] = $max_uploads; }
+        if (!is_null($key_marker)) { $params['keyMarker'] = $key_marker; }
+        if (!is_null($prefix)) { $params['prefix'] = $prefix; }
+
+        return $this->_sendRequest(HttpMethod::GET, array(
+            'bucket_name' => $bucket_name,
+            'params' => $params,
+            'config' => $config,
+        ));
+    }
+
+
+    public function createSignature($credentials, $http_method, $path, $params, $headers) {
+        // IGNORE $credentials
+        return $this->auth->generateAuthorization($http_method, $path, $params, $headers);
     }
 
     // --- E N D ---
+
+    private function _prepareObjectHeaders($headers = null) {
+        if (is_null($headers)) {
+            return array(array(), false);
+        }
+
+        $allowed_headers = array(
+            HttpHeaders::CONTENT_LENGTH,
+            HttpHeaders::CONTENT_ENCODING,
+            HttpHeaders::CONTENT_MD5,
+            HttpHeaders::CONTENT_TYPE,
+            HttpHeaders::CONTENT_DISPOSITION,
+            HttpHeaders::ETAG,
+        );
+
+        $meta_size = 0;
+        $object_headers = array();
+        foreach ($headers as $key => $val) {
+            if (in_array($key, $allowed_headers)) {
+                $object_headers[$key] = $val;
+            }
+            else if (strpos($key, HttpHeaders::BCE_USER_METADATA_PREFIX) === 0) {
+                $object_headers[$key] = $val;
+                $meta_size += strlen($val);
+            }
+        }
+
+        if ($meta_size > BosClient::MAX_USER_METADATA_SIZE) {
+            throw new \InvalidArgumentException(sprintf("Metadata size should not be greater than %d.",
+                BosClient::MAX_USER_METADATA_SIZE));
+        }
+
+        if (isset($object_headers[HttpHeaders::CONTENT_LENGTH])) {
+            $content_length = $object_headers[HttpHeaders::CONTENT_LENGTH];
+            if ($content_length && $content_length < 0) {
+                throw new \InvalidArgumentException('content_length should not be negative.');
+            } else if ($content_length > BosClient::MAX_PUT_OBJECT_LENGTH) {
+                throw new \InvalidArgumentException(sprintf("Object length should be less than %d. Use multi-part upload instead.",
+                    BosClient::MAX_PUT_OBJECT_LENGTH));
+            }
+        }
+
+        if (isset($object_headers[HttpHeaders::ETAG])) {
+            $etag = $object_headers[HttpHeaders::ETAG];
+            if (trim($etag, "\"") === $etag) {
+                $object_headers[HttpHeaders::ETAG] = sprintf("\"%s\"", $etag);
+            }
+        }
+
+        if (!isset($object_headers[HttpHeaders::CONTENT_TYPE])) {
+            $object_headers[HttpHeaders::CONTENT_TYPE] =
+                HttpContentTypes::OCTET_STREAM;
+        }
+
+        return array($object_headers, $meta_size > 0);
+    }
+
+    private function _sendRequest($http_method, $var_args) {
+        $default_args = array(
+            'bucket_name' => null,
+            'key' => null,
+            'body' => null,
+            'headers' => array(),
+            'params' => array(),
+            'config' => array(),
+            'output_stream' => null,
+        );
+
+        $args = array_merge($default_args, $var_args);
+        $config = array_merge(array(), $this->config, $args['config']);
+        $path = $this->_getPath($config, $args['bucket_name'], $args['key']);
+
+        $http_client = new HttpClient($config);
+        return $http_client->sendRequest(
+            $http_method,                           /* http_method */
+            $path,                                  /* path */
+            $args['body'],                          /* body */
+            $args['headers'],                       /* headers */
+            $args['params'],                        /* params */
+            array($this, 'createSignature'),        /* sign_function */
+            $args['output_stream']                  /* output_stream */
+        );
+    }
+
+    private function _getPath($config, $bucket_name = null, $key = null) {
+        return Coder::appendUri(Bce::URL_PREFIX, $bucket_name, $key);
+    }
 }
