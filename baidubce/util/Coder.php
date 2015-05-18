@@ -29,7 +29,7 @@ class baidubce_util_Coder {
      * @return string
      */
     static function urlEncodeExceptSlash($str) {
-        return implode("/", array_map(rawurlencode, explode("/", $str)));
+        return implode("/", array_map('rawurlencode', explode("/", $str)));
     }
 
     /**
