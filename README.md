@@ -1,12 +1,8 @@
 ## bos-php-sdk
 
-RESTful api 文档：<http://gollum.baidu.com/BOS_API>
+**非官方版本**
 
-### 环境依赖
-
-```
-git clone http://gitlab.baidu.com/inf/bos-php-sdk.git
-```
+RESTful api 文档：<http://bce.baidu.com/doc/BOS/API.html>
 
 ### php < 5.3
 
