@@ -643,12 +643,14 @@ class BosClientTest extends PHPUnit_Framework_TestCase {
         $part_list = array();
         $etags = '';
 
-        $string = file_get_contents($this->filename);
+        $fp = fopen($this->filename, 'r');
         while ($left_size > 0) {
             $part_size = min(5 * 1024 * 1024, $left_size);
 
-            $response = $this->client->uploadPartFromString($this->bucket, $this->key, $string,
-                $offset, $part_size, $upload_id, $part_number);
+            fseek($fp, $offset);
+            $string = fread($fp, $part_size);
+            $response = $this->client->uploadPartFromString($this->bucket, $this->key, $string, $upload_id, $part_number);
+
             $this->checkProperties($response);
             $this->assertEquals(200, $response['status']);
             $this->assertEquals(0, $response['http_headers']['Content-Length']);
@@ -662,6 +664,7 @@ class BosClientTest extends PHPUnit_Framework_TestCase {
             $offset += $part_size;
             $part_number += 1;
         }
+        fclose($fp);
 
         $response = $this->client->completeMultipartUpload($this->bucket, $this->key,
             $upload_id, $part_list);
