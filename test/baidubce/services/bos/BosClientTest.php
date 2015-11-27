@@ -628,6 +628,58 @@ class BosClientTest extends PHPUnit_Framework_TestCase {
         $this->assertEquals('-' . md5(implode('', $etags)), $response['http_headers']['ETag']);
     }
 
+    public function testMultipartUploadFromString() {
+        // superfile size is over 1M
+        $file_size = 20 * 1024 * 1024 + 317;
+        $this->client->createBucket($this->bucket);
+        $this->prepareTemporaryFile($file_size);
+
+        $response = $this->client->initiateMultipartUpload($this->bucket, $this->key);
+        $upload_id = $response['body']['uploadId'];
+
+        $left_size = filesize($this->filename);
+        $offset = 0;
+        $part_number = 1;
+        $part_list = array();
+        $etags = '';
+
+        $string = file_get_contents($this->filename);
+        while ($left_size > 0) {
+            $part_size = min(5 * 1024 * 1024, $left_size);
+
+            $response = $this->client->uploadPartFromString($this->bucket, $this->key, $string,
+                $offset, $part_size, $upload_id, $part_number);
+            $this->checkProperties($response);
+            $this->assertEquals(200, $response['status']);
+            $this->assertEquals(0, $response['http_headers']['Content-Length']);
+
+            $part_list[] = array(
+                'partNumber' => $part_number,
+                'eTag' => $response['http_headers']['ETag'],
+            );
+            $etags .= $response['http_headers']['ETag'];
+            $left_size -= $part_size;
+            $offset += $part_size;
+            $part_number += 1;
+        }
+
+        $response = $this->client->completeMultipartUpload($this->bucket, $this->key,
+            $upload_id, $part_list);
+        $this->checkProperties($response);
+        $this->assertEquals(200, $response['status']);
+        $this->assertArrayHasKey('location', $response['body']);
+        $this->assertEquals($this->bucket, $response['body']['bucket']);
+        $this->assertEquals($this->key, $response['body']['key']);
+        $this->assertEquals('-' . md5($etags), $response['body']['eTag']);
+
+        $response = $this->client->getObjectMetadata($this->bucket, $this->key);
+        $this->checkProperties($response);
+        $this->assertEquals(200, $response['status']);
+        $this->assertEquals($file_size, $response['http_headers']['Content-Length']);
+        $this->assertEquals(baidubce_util_Coder::guessMimeType($this->key), $response['http_headers']['Content-Type']);
+        $this->assertEquals('-' . md5($etags), $response['http_headers']['ETag']);
+    }
+
     public function testMultipartUpload() {
         // superfile size is over 1M
         $file_size = 20 * 1024 * 1024 + 317;

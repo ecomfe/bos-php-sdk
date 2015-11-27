@@ -519,7 +519,56 @@ class baidubce_services_bos_BosClient {
     }
 
     /**
-     * Upload a part from starting with offset.
+     * Upload a part from string starting with offset.
+     *
+     * @param string $bucket_name The bucket name.
+     * @param string $object_name The object path.
+     * @param string $string The string will be uploaded.
+     * @param number $offset The file offset.
+     * @param number $part_size The uploaded part size.
+     * @param string $upload_id The uploadId returned by initiateMultipartUpload.
+     * @param number $part_number The part index.
+     * @param mixed $options The extra http request headers or params.
+     *
+     * @return mixed
+     */
+    public function uploadPartFromString($bucket_name, $object_name, $string,
+                                         $offset, $part_size, $upload_id, $part_number, $options = array()) {
+        if ($part_number < 1 || $part_number > MAX_PARTS) {
+            throw new baidubce_exception_BceIllegalArgumentException("Invalid part number.");
+        }
+
+        // Only the last part's size can less than MIN_PART_SIZE, but
+        // we don't know the total part count, so we have no way to do this check.
+        if ($part_size >= MAX_PART_SIZE) {
+            throw new baidubce_exception_BceIllegalArgumentException(
+                sprintf("Invalid size, the maximum part size is %d", MAX_PART_SIZE));
+        }
+
+        list($headers, $params) = $this->checkOptions($options);
+        $params['partnumber'] = $part_number;
+        $params['uploadId'] = $upload_id;
+
+        $file_size = mb_strlen($string, '8bit');
+        $fp = fopen('php://memory','r+');
+        fwrite($fp, $string);
+        rewind($fp);
+
+        try {
+            $response = $this->putObjectFromHandle($bucket_name, $object_name, $fp, $file_size,
+                $offset, $part_size, $headers, $params);
+            fclose($fp);
+
+            return $response;
+        }
+        catch(Exception $ex) {
+            fclose($fp);
+            throw $ex;
+        }
+    }
+
+    /**
+     * Upload a part from disk file starting with offset.
      *
      * @param string $bucket_name The bucket name.
      * @param string $object_name The object path.
