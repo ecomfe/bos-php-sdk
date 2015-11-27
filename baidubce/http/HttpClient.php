@@ -53,6 +53,14 @@ class baidubce_http_HttpClient {
         curl_setopt($curl_handle, CURLOPT_NOPROGRESS, true);
         curl_setopt($curl_handle, CURLINFO_HEADER_OUT, true);
 
+        if (isset($this->config['LowSpeedLimit'])) {
+            curl_setopt($curl_handle, CURLOPT_LOW_SPEED_LIMIT, $this->config["LowSpeedLimit"]);
+        }
+
+        if (isset($this->config['LowSpeedTime'])) {
+            curl_setopt($curl_handle, CURLOPT_LOW_SPEED_TIME, $this->config["LowSpeedTime"]);
+        }
+
         if (isset($this->config['TimeOut'])) {
             curl_setopt($curl_handle, CURLOPT_TIMEOUT_MS, $this->config['TimeOut']);
         }
@@ -71,7 +79,7 @@ class baidubce_http_HttpClient {
         }
 
         // Handle the request body
-        // 1. If $request_body exists, convert it from string to a stream 
+        // 1. If $request_body exists, convert it from string to a stream
         // 2. Set the ReadFunction Option to $read_callback which will return the request body.
         if ($request_body != '' && is_null($input_stream)) {
             $input_stream = fopen('php://memory','r+');
@@ -170,7 +178,7 @@ class baidubce_http_HttpClient {
      * @return number The actual readed data length, empty string means reach the end.
      */
     private function readCallback($_1, $_2, $size) {
-        if (is_resource($this->input_stream)) { 
+        if (is_resource($this->input_stream)) {
             return fread($this->input_stream, $size);
         }
         else if (method_exists($this->input_stream, 'read')) {
