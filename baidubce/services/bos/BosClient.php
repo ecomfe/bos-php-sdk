@@ -388,16 +388,18 @@ class baidubce_services_bos_BosClient {
      */
     public function getObject($bucket_name, $object_name, $range = null, $config = array()) {
         $output_stream = fopen('php://memory', 'r+');
-        $response = $this->sendRequest('GET', array(
-            'bucket_name' => $bucket_name,
-            'key' => $object_name,
-            'headers' =>  array(
-                'Range' => is_null($range) ? '' : sprintf("bytes=%s", $range),
-            ),
-            'config' => $config,
-            // 避免 HttpClient 解析 ResponseBody 的内容
-            'output_stream' => $output_stream,
-        ));
+        $headers = array(
+            'Range' => is_null($range) ? '' : sprintf("bytes=%s", $range),
+        );
+        $response = $this->http_client->sendRequest('GET',
+            $bucket_name,
+            $object_name,
+            $headers,
+            '',
+            $config,
+            null,
+            $output_stream
+        );
         rewind($output_stream);
         $response['body'] = stream_get_contents($output_stream);
 

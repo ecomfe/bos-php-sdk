@@ -73,8 +73,8 @@ class BosHttpClientTest extends PHPUnit_Framework_TestCase {
         rewind($output_stream);
         $content = stream_get_contents($output_stream);
         $body = json_decode($content, true);
-        $this->assertEquals('a0a2fe988a774be08978736ae2a1668b', $body['owner']['id']);
-        $this->assertEquals('PASSPORT:105003501', $body['owner']['displayName']);
+        $this->assertEquals('992c67ee10be4e85bf444d18b638f9ba', $body['owner']['id']);
+        $this->assertEquals('PASSPORT:105015804', $body['owner']['displayName']);
     }
 }
 

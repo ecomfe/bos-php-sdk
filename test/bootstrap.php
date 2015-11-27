@@ -19,7 +19,7 @@ define('__BOS_TEST_CONFIG', json_encode(array(
     'AccessKeyId' => '4c60a1d7c5c846c79bff4f304240c581',
     'AccessKeySecret' => '42bb4f0b2f274b7eb0b544156a50e564',
     'TimeOut' => 5000,    // 5 seconds
-    'Host' => '10.105.97.15',
+    'Host' => 'bos.qasandbox.bcetest.baidu.com',
     // 'Host' => 'localhost:8828',
     'User-Agent' => 'This is the user-agent'
 )));

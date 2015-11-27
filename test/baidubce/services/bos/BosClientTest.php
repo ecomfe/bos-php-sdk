@@ -17,6 +17,9 @@ require_once __BOS_CLIENT_ROOT . "/baidubce/util/Time.php";
 require_once __BOS_CLIENT_ROOT . "/baidubce/util/Coder.php";
 require_once __BOS_CLIENT_ROOT . "/baidubce/exception/BceServiceException.php";
 
+define('OWNER_ID', '992c67ee10be4e85bf444d18b638f9ba');
+define('OWNER_PASSPORT_ID', 'PASSPORT:105015804');
+
 class BosClientTest extends PHPUnit_Framework_TestCase {
     private $client;
 
@@ -85,8 +88,8 @@ class BosClientTest extends PHPUnit_Framework_TestCase {
         $response = $this->client->listBuckets();
 
         $owner = array(
-            "id" => 'a0a2fe988a774be08978736ae2a1668b',
-            "displayName" => 'PASSPORT:105003501'
+            "id" => OWNER_ID,
+            "displayName" => OWNER_PASSPORT_ID,
         );
         $this->checkProperties($response);
         $this->assertEquals(200, $response['status']);
@@ -143,7 +146,7 @@ class BosClientTest extends PHPUnit_Framework_TestCase {
         $grant_list = array();
         $grant_list[] = array(
             'grantee' => array(
-                array('id' => 'a0a2fe988a774be08978736ae2a1668b'),
+                array('id' => OWNER_ID),
                 array('id' => 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),
             ),
             'permission' => array('FULL_CONTROL')
@@ -172,7 +175,7 @@ class BosClientTest extends PHPUnit_Framework_TestCase {
         $this->assertTrue(array_key_exists('owner', $response['body']));
         $this->assertTrue(array_key_exists('version', $response['body']));
         $this->assertTrue(array_key_exists('accessControlList', $response['body']));
-        $this->assertEquals($response['body']['owner']['id'], 'a0a2fe988a774be08978736ae2a1668b');
+        $this->assertEquals($response['body']['owner']['id'], OWNER_ID);
         $this->assertEquals($response['body']['version'], 1);
         $this->assertEquals($response['body']['accessControlList'][0], array(
             'grantee' => array(
@@ -212,7 +215,7 @@ class BosClientTest extends PHPUnit_Framework_TestCase {
         $this->assertEquals('/', $response['body']['delimiter']);
         $this->assertEquals('', $response['body']['marker']);
         $this->assertEquals(1000, $response['body']['maxKeys']);
-        $this->assertEquals('false', $response['body']['isTruncated']);
+        $this->assertEquals(false, $response['body']['isTruncated']);
         $this->assertEquals(4, count($response['body']['contents']));
         $this->assertEquals('dir0/a.php', $response['body']['contents'][0]['key']);
         $this->assertEquals(array(
@@ -268,7 +271,7 @@ class BosClientTest extends PHPUnit_Framework_TestCase {
 
         $this->checkProperties($response);
         $this->assertEquals(200, $response['status']);
-        $this->assertEquals("false", $response['body']['isTruncated']);
+        $this->assertEquals(false, $response['body']['isTruncated']);
         $this->assertEquals(1000, $response['body']['maxKeys']);
         $this->assertEquals($this->bucket, $response['body']['name']);
         $this->assertEquals("", $response['body']['prefix']);
@@ -351,6 +354,10 @@ class BosClientTest extends PHPUnit_Framework_TestCase {
             '我/爱/北/京/天/安/门', '我/爱/北/京/天/安/门');
         $this->checkProperties($response);
         $this->assertEquals(200, $response['status']);
+
+        $response = $this->client->getObjectAsString($this->bucket,
+            '我/爱/北/京/天/安/门');
+        $this->assertEquals('我/爱/北/京/天/安/门', $response);
 
         $response = $this->client->listObjects($this->bucket);
         $contents = $response['body']['contents'];
@@ -695,13 +702,13 @@ class BosClientTest extends PHPUnit_Framework_TestCase {
         $this->checkProperties($response);
         $this->assertEquals(200, $response['status']);
         $this->assertEquals($this->bucket, $response['body']['bucket']);
-        $this->assertEquals('false', $response['body']['isTruncated']);
+        $this->assertEquals(false, $response['body']['isTruncated']);
         $this->assertEquals($time1, $response['body']['initiated']);
         $this->assertEquals($upload_id, $response['body']['uploadId']);
         $this->assertEquals(1, $response['body']['nextPartNumberMarker']);
         $this->assertEquals(0, $response['body']['partNumberMarker']);
-        $this->assertEquals('a0a2fe988a774be08978736ae2a1668b', $response['body']['owner']['id']);
-        $this->assertEquals('PASSPORT:105003501', $response['body']['owner']['displayName']);
+        $this->assertEquals(OWNER_ID, $response['body']['owner']['id']);
+        $this->assertEquals(OWNER_PASSPORT_ID, $response['body']['owner']['displayName']);
 
         foreach ($response['body']['parts'] as $item) {
             $this->assertEquals('6d0bb00954ceb7fbee436bb55a8397a9', $item['eTag']);
@@ -728,7 +735,7 @@ class BosClientTest extends PHPUnit_Framework_TestCase {
         $this->assertEquals(1000, $response['body']['maxUploads']);
         $this->assertEquals('', $response['body']['prefix']);
         $this->assertEquals('', $response['body']['keyMarker']);
-        $this->assertEquals('false', $response['body']['isTruncated']);
+        $this->assertEquals(false, $response['body']['isTruncated']);
         $this->assertEquals(2, count($response['body']['uploads']));
         $this->assertEquals($upload_id1, $response['body']['uploads'][0]['uploadId']);
         $this->assertEquals($time1, $response['body']['uploads'][0]['initiated']);
