@@ -524,8 +524,6 @@ class baidubce_services_bos_BosClient {
      * @param string $bucket_name The bucket name.
      * @param string $object_name The object path.
      * @param string $string The string will be uploaded.
-     * @param number $offset The file offset.
-     * @param number $part_size The uploaded part size.
      * @param string $upload_id The uploadId returned by initiateMultipartUpload.
      * @param number $part_number The part index.
      * @param mixed $options The extra http request headers or params.
@@ -533,10 +531,13 @@ class baidubce_services_bos_BosClient {
      * @return mixed
      */
     public function uploadPartFromString($bucket_name, $object_name, $string,
-                                         $offset, $part_size, $upload_id, $part_number, $options = array()) {
+                                         $upload_id, $part_number, $options = array()) {
         if ($part_number < 1 || $part_number > MAX_PARTS) {
             throw new baidubce_exception_BceIllegalArgumentException("Invalid part number.");
         }
+
+        $offset = 0;
+        $part_size = mb_strlen($string, '8bit');
 
         // Only the last part's size can less than MIN_PART_SIZE, but
         // we don't know the total part count, so we have no way to do this check.
@@ -549,7 +550,7 @@ class baidubce_services_bos_BosClient {
         $params['partnumber'] = $part_number;
         $params['uploadId'] = $upload_id;
 
-        $file_size = mb_strlen($string, '8bit');
+        $file_size = $part_size;
         $fp = fopen('php://memory','r+');
         fwrite($fp, $string);
         rewind($fp);
