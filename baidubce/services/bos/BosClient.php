@@ -362,6 +362,49 @@ class baidubce_services_bos_BosClient {
     }
 
     /**
+     * Get the object cotent as string
+     *
+     * @param string $bucket_name The bucket name.
+     * @param string $object_name The object path.
+     * @param string $range If specified, only get the range part.
+     * @param mixed $config The optional bce configuration, which will overwrite the
+     *   default configuration that was passed while creating BosClient instance.
+     * @return mixed
+     */
+    public function getObjectAsString($bucket_name, $object_name, $range = null, $config = array()) {
+        $response = $this->getObject($bucket_name, $object_name, $range, $config);
+        return $response['body'];
+    }
+
+    /**
+     * Get the object from a bucket.
+     *
+     * @param string $bucket_name The bucket name.
+     * @param string $object_name The object path.
+     * @param string $range If specified, only get the range part.
+     * @param mixed $config The optional bce configuration, which will overwrite the
+     *   default configuration that was passed while creating BosClient instance.
+     * @return mixed
+     */
+    public function getObject($bucket_name, $object_name, $range = null, $config = array()) {
+        $output_stream = fopen('php://memory', 'r+');
+        $response = $this->sendRequest('GET', array(
+            'bucket_name' => $bucket_name,
+            'key' => $object_name,
+            'headers' =>  array(
+                'Range' => is_null($range) ? '' : sprintf("bytes=%s", $range),
+            ),
+            'config' => $config,
+            // 避免 HttpClient 解析 ResponseBody 的内容
+            'output_stream' => $output_stream,
+        ));
+        rewind($output_stream);
+        $response['body'] = stream_get_contents($output_stream);
+
+        return $response;
+    }
+
+    /**
      * Get Content of Object and Put Content to File
      *
      * @param string $bucket_name The bucket name.

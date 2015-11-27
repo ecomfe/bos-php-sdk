@@ -16,10 +16,10 @@ define('__BOS_CLIENT_ROOT', dirname(dirname(__FILE__)));
 
 // Only scalar and null values are allowed
 define('__BOS_TEST_CONFIG', json_encode(array(
-    'AccessKeyId' => 'bb37e6dfffc948a59eb5ddd254263809',
-    'AccessKeySecret' => '4377d181d7e94cab9ca289e670b9dae4',
+    'AccessKeyId' => '4c60a1d7c5c846c79bff4f304240c581',
+    'AccessKeySecret' => '42bb4f0b2f274b7eb0b544156a50e564',
     'TimeOut' => 5000,    // 5 seconds
-    'Host' => '10.26.208.32:8828',
+    'Host' => '10.105.97.15',
     // 'Host' => 'localhost:8828',
     'User-Agent' => 'This is the user-agent'
 )));
