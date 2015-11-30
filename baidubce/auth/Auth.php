@@ -101,7 +101,7 @@ class baidubce_auth_Auth {
      */
     public function headersCanonicalization($headers, $headers_to_sign = null) {
         if (is_null($headers_to_sign) || count($headers_to_sign) <= 0) {
-            $headers_to_sign = array('host', 'content-md5', 'content-length', 'content-type');
+            $headers_to_sign = array('host', 'range', 'content-md5', 'content-length', 'content-type');
         }
 
         $canonical_headers = array();

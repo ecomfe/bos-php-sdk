@@ -323,7 +323,7 @@ class BosClientTest extends PHPUnit_Framework_TestCase {
         $this->assertEquals('application/octet-stream', $response['http_headers']['Content-Type']);
         $this->assertEquals(md5(file_get_contents(__FILE__)), $response['http_headers']['ETag']);
 
-        $url = $this->client->generatePresignedUrl($this->bucket, $this->key);
+        $url = $this->client->generatePresignedUrl($this->bucket, $this->key/*, 0, 1800, array('Range' => 'bytes=9-19')*/);
         $this->assertEquals(md5(file_get_contents(__FILE__)), md5(file_get_contents($url)));
 
         $response = $this->client->getObjectToFile($this->bucket, $this->key, $this->filename, '9-19');
@@ -519,7 +519,9 @@ class BosClientTest extends PHPUnit_Framework_TestCase {
         $this->client->createBucket($this->bucket);
         $this->prepareTemporaryFile($file_size);
 
-        $response = $this->client->initiateMultipartUpload($this->bucket, $this->key);
+        $response = $this->client->initiateMultipartUpload($this->bucket, $this->key, null, array(
+            'Content-Type' => 'foo/bar'
+        ));
         $upload_id = $response['body']['uploadId'];
 
         $left_size = filesize($this->filename);
@@ -560,6 +562,7 @@ class BosClientTest extends PHPUnit_Framework_TestCase {
         $this->checkProperties($response);
         $this->assertEquals(200, $response['status']);
         $this->assertEquals($file_size, $response['http_headers']['Content-Length']);
+        $this->assertEquals('foo/bar', $response['http_headers']['Content-Type']);
         $this->assertEquals(md5_file($this->filename), $response['http_headers']['ETag']);
     }
 

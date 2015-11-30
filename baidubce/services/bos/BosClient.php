@@ -343,6 +343,7 @@ class baidubce_services_bos_BosClient {
             'Content-MD5',
             'Content-Length',
             'Content-Type',
+            'Range',
             'x-bce-copy-source-if-match',
             'x-bce-date',
             'x-bce-metadata-directive',
@@ -490,16 +491,20 @@ class baidubce_services_bos_BosClient {
      * @param string $bucket_name The bucket name.
      * @param string $object_name The object path.
      * @param string $file_name Init the content-type by file name extension.
+     * @param mixed $options The extra http request headers or params.
      *
      * @return mixed
      */
-    public function initiateMultipartUpload($bucket_name, $object_name, $file_name = '') {
-        $content_type = empty($file_name) ? baidubce_util_Coder::guessMimeType($object_name)
-                                          : baidubce_util_Coder::guessMimeType($file_name);
-        $headers = array(
-            'Content-Type' => $content_type,
-        );
-        $params = array('uploads' => '');
+    public function initiateMultipartUpload($bucket_name, $object_name, $file_name = '', $options = array()) {
+        list($headers, $params) = $this->checkOptions($options);
+        $params['uploads'] = '';
+
+        if (!isset($headers['Content-Type'])) {
+            $content_type = empty($file_name) ? baidubce_util_Coder::guessMimeType($object_name)
+                                              : baidubce_util_Coder::guessMimeType($file_name);
+            $headers['Content-Type'] = $content_type;
+        }
+
         return $this->http_client->sendRequest('POST',
             $bucket_name, $object_name, $headers, '', $params);
     }
