@@ -348,7 +348,12 @@ class baidubce_services_bos_BosClient {
             'x-bce-date',
             'x-bce-metadata-directive',
         );
-        $params_options = array();
+
+        // x-bce-range 只能以 querystring 的角色出现
+        // Range 只能以 request header 的角色出现
+        $params_options = array(
+            'x-bce-range'
+        );
         foreach ($options as $key => $value) {
             if (in_array($key, $headers_options)) {
                 $headers[$key] = $value;

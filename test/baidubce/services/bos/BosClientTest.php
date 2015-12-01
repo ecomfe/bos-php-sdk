@@ -323,7 +323,10 @@ class BosClientTest extends PHPUnit_Framework_TestCase {
         $this->assertEquals('application/octet-stream', $response['http_headers']['Content-Type']);
         $this->assertEquals(md5(file_get_contents(__FILE__)), $response['http_headers']['ETag']);
 
-        $url = $this->client->generatePresignedUrl($this->bucket, $this->key/*, 0, 1800, array('Range' => 'bytes=9-19')*/);
+        $url = $this->client->generatePresignedUrl($this->bucket, $this->key, 0, 1800, array('x-bce-range' => '9-19'));
+        $this->assertEquals(md5(substr(file_get_contents(__FILE__), 9, 11)), md5(file_get_contents($url)));
+
+        $url = $this->client->generatePresignedUrl($this->bucket, $this->key);
         $this->assertEquals(md5(file_get_contents(__FILE__)), md5(file_get_contents($url)));
 
         $response = $this->client->getObjectToFile($this->bucket, $this->key, $this->filename, '9-19');
