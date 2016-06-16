@@ -343,6 +343,8 @@ class baidubce_services_bos_BosClient {
             'Content-MD5',
             'Content-Length',
             'Content-Type',
+            'Content-Disposition',
+            'Cache-Control',
             'Range',
             'x-bce-copy-source-if-match',
             'x-bce-date',
