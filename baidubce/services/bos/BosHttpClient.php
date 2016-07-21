@@ -85,6 +85,8 @@ class baidubce_services_bos_BosHttpClient extends baidubce_http_HttpClient {
             'x-bce-request-id' => baidubce_util_BceTools::genUUid(),
             'Expect' => '',
             'Transfer-Encoding' => '',
+            'Cache-Control' => '',
+            'Pragma' => '',
             'Content-Type' => 'application/json; charset=utf-8',
             'Content-Length' => $content_length,
             'User-Agent' => $user_agent,
